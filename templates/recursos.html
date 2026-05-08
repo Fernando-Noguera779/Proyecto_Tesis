@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FNOGUERA CLUSTER - Recursos</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .progress-premium {
+            height: 10px;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .node-card {
+            border-left: 4px solid #10b981;
+        }
+    </style>
+    <script src="{{ url_for('static', filename='js/darkmode.js') }}"></script>
+</head>
+
+<body>
+    <nav class="navbar-institutional">
+        <div class="navbar-brand-group">
+            <h4 class="logo-text">FNOGUERA CLUSTER</h4>
+        </div>
+
+        <div class="navbar-nav-group">
+            <a href="/dashboard" class="navbar-link">
+                <i class="fas fa-chart-line"></i> Resumen
+            </a>
+            <a href="/noticias" class="navbar-link">
+                <i class="fas fa-newspaper"></i> Noticias
+            </a>
+            <a href="/proyectos" class="navbar-link">
+                <i class="fas fa-project-diagram"></i> Proyectos
+            </a>
+            <a href="/recursos" class="navbar-link active">
+                <i class="fas fa-server"></i> Recursos
+            </a>
+            <a href="/solicitud" class="navbar-link">
+                <i class="fas fa-file-alt"></i> Solicitud
+            </a>
+            <a href="/perfil" class="navbar-link">
+                <i class="fas fa-user"></i> Perfil
+            </a>
+            {% if is_admin %}
+            <a href="/usuarios" class="navbar-link">
+                <i class="fas fa-users"></i> Usuarios
+            </a>
+            {% endif %}
+            
+            
+            
+            <button class="btn btn-link navbar-link border-0" onclick="toggleTheme()" title="Cambiar Tema">
+                <i class="fas fa-moon theme-toggle-icon"></i>
+            </button>
+            <div class="dropdown d-inline-block">
+                <button class="btn btn-link navbar-link position-relative border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-bell"></i>
+                    {% if unread_count > 0 %}
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notif-badge">
+                        {{ unread_count }}
+                    </span>
+                    {% endif %}
+                </button>
+                <div class="dropdown-menu dropdown-menu-end glass-card border-0 shadow-lg p-0 notif-dropdown">
+                    <div class="p-3 border-bottom border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold text-white">Notificaciones</h6>
+                        <a href="/notificaciones/limpiar" class="x-small text-primary text-decoration-none">Marcar como leídas</a>
+                    </div>
+                    <div class="notif-list">
+                        {% for n in unread_notifs %}
+                        <div class="p-3 border-bottom border-secondary border-opacity-10 notif-item">
+                            <div class="d-flex align-items-start">
+                                <div class="bg-primary bg-opacity-10 p-2 rounded-circle me-3">
+                                    <i class="fas {% if n.tipo == 'SOLICITUD' %}fa-file-invoice{% else %}fa-info-circle{% endif %} text-primary small"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <p class="mb-1 small text-white notif-message">{{ n.mensaje }}</p>
+                                    <span class="x-small text-muted">{{ n.fecha.strftime('%d/%m %H:%M') }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="p-4 text-center">
+                            <i class="fas fa-bell-slash text-muted mb-2 d-block fa-lg"></i>
+                            <p class="text-muted small mb-0">No hay notificaciones nuevas</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <a href="/logout" class="navbar-link logout">
+                <i class="fas fa-sign-out-alt"></i> Salir
+            </a>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <header class="mb-5">
+            <h2 class="fw-bold">Estado del Sistema</h2>
+            <p class="text-muted">Monitorización en tiempo real de los recursos computacionales</p>
+        </header>
+
+        <!-- Global Stats -->
+        <div class="row g-4 mb-5">
+            <div class="col-md-4">
+                <div class="glass-card">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <p class="text-muted small fw-bold text-uppercase mb-1">Uso de CPU</p>
+                            <h3 class="fw-bold mb-0">{{ recursos.uso_cpu }} / {{ recursos.total_cpu }} Núcleos</h3>
+                        </div>
+                        <div class="bg-primary bg-opacity-10 p-2 rounded">
+                            <i class="fas fa-microchip text-primary"></i>
+                        </div>
+                    </div>
+                    <div class="progress-premium mb-2">
+                        <div class="progress-bar bg-primary progress-bar-dynamic"
+                            data-width="{{ (recursos.uso_cpu / recursos.total_cpu * 100)|round|int }}"></div>
+                    </div>
+                    <span class="small text-muted">{{ (recursos.uso_cpu / recursos.total_cpu * 100)|round|int }}% en
+                        uso</span>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="glass-card">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <p class="text-muted small fw-bold text-uppercase mb-1">Memoria RAM</p>
+                            <h3 class="fw-bold mb-0">{{ recursos.uso_ram }} / {{ recursos.total_ram }} GB</h3>
+                        </div>
+                        <div class="bg-success bg-opacity-10 p-2 rounded">
+                            <i class="fas fa-memory text-success"></i>
+                        </div>
+                    </div>
+                    <div class="progress-premium mb-2">
+                        <div class="progress-bar bg-success progress-bar-dynamic"
+                            data-width="{{ (recursos.uso_ram / recursos.total_ram * 100)|round|int }}"></div>
+                    </div>
+                    <span class="small text-muted">{{ (recursos.uso_ram / recursos.total_ram * 100)|round|int }}% en
+                        uso</span>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="glass-card">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <p class="text-muted small fw-bold text-uppercase mb-1">GPU Clusters</p>
+                            <h3 class="fw-bold mb-0">{{ recursos.uso_gpu }} / {{ recursos.total_gpu }} GPUs</h3>
+                        </div>
+                        <div class="bg-warning bg-opacity-10 p-2 rounded">
+                            <i class="fas fa-vr-cardboard text-warning"></i>
+                        </div>
+                    </div>
+                    <div class="progress-premium mb-2">
+                        <div class="progress-bar bg-warning progress-bar-dynamic"
+                            data-width="{{ (recursos.uso_gpu / recursos.total_gpu * 100)|round|int }}"></div>
+                    </div>
+                    <span class="small text-muted">{{ (recursos.uso_gpu / recursos.total_gpu * 100)|round|int }}% en
+                        uso</span>
+                </div>
+            </div>
+        </div>
+
+        <h4 class="fw-bold mb-4">Nodos del Computación</h4>
+        <div class="row g-4">
+            {% for n in recursos.nodos %}
+            <div class="col-md-6 col-lg-3">
+                <div class="glass-card node-card">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0">{{ n.nombre }}</h5>
+                        <span class="badge bg-success-subtle text-success py-1 px-2 rounded-pill small">{{ n.estado
+                            }}</span>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span>CPU</span>
+                            <span>{{ n.cpu_uso }}%</span>
+                        </div>
+                        <div class="progress-premium">
+                            <div class="progress-bar bg-primary progress-bar-dynamic" data-width="{{ n.cpu_uso }}">
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span>RAM</span>
+                            <span>{{ n.ram_uso }}%</span>
+                        </div>
+                        <div class="progress-premium">
+                            <div class="progress-bar bg-success progress-bar-dynamic" data-width="{{ n.ram_uso }}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.querySelectorAll('.progress-bar-dynamic').forEach(bar => {
+            const width = bar.getAttribute('data-width');
+            if (width) {
+                bar.style.width = width + '%';
+            }
+        });
+    </script>
+</body>
+
+</html>

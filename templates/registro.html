@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FNOGUERA CLUSTER - Registro</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            background-color: var(--bg-dark);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .register-card {
+            max-width: 500px;
+            width: 90%;
+            margin: 2rem 0;
+        }
+    </style>
+    <script src="{{ url_for('static', filename='js/darkmode.js') }}"></script>
+</head>
+
+<body>
+    <div class="register-card glass-card">
+        <div class="text-center mb-5">
+            <h2 class="fw-bold text-gradient">Crear Cuenta</h2>
+            <p class="text-muted">Únete a la plataforma de computación NIDTEC</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} glass-card border-0 mb-4 py-2" role="alert">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <form action="/registro" method="POST">
+            <div class="mb-4">
+                <label class="form-label fw-bold">Nombre y Apellido Completo</label>
+                <input type="text" name="nombre" class="form-control form-control-premium" placeholder="Juan Pérez"
+                    required>
+            </div>
+            <div class="mb-4">
+                <label class="form-label fw-bold">Correo Institucional</label>
+                <input type="email" name="correo" class="form-control form-control-premium"
+                    placeholder="usuario@pol.una.py" required>
+            </div>
+            <div class="mb-4">
+                <label class="form-label fw-bold">Contraseña</label>
+                <input type="password" name="password" class="form-control form-control-premium" placeholder="••••••••"
+                    required>
+            </div>
+
+            <div class="mb-5 form-check">
+                <input type="checkbox" class="form-check-input" id="es_admin" name="es_admin">
+                <label class="form-check-label text-dark small" for="es_admin">Solicitar perfil de administrador
+                    (requiere aprobación)</label>
+            </div>
+
+            <button type="submit" class="btn btn-premium w-100 py-3">Registrarse</button>
+        </form>
+
+        <div class="text-center mt-5">
+            <p class="text-muted small">¿Ya tienes cuenta? <a href="/"
+                    class="text-gradient fw-bold text-decoration-none">Inicia sesión</a></p>
+        </div>
+    </div>
+</body>
+
+</html>

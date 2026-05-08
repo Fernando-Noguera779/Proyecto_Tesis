@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FNOGUERA CLUSTER - Terminal SSH</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .terminal-container {
+            background: #0d1117;
+            border-radius: 12px;
+            padding: 20px;
+            font-family: 'Courier New', Courier, monospace;
+            color: #c9d1d9;
+            min-height: 500px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            border: 1px solid #30363d;
+        }
+
+        .terminal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #30363d;
+            padding-bottom: 10px;
+        }
+
+        .terminal-dots {
+            display: flex;
+            gap: 8px;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .dot-red {
+            background: #ff5f56;
+        }
+
+        .dot-yellow {
+            background: #ffbd2e;
+        }
+
+        .dot-green {
+            background: #27c93f;
+        }
+
+        .terminal-output {
+            overflow-y: auto;
+            max-height: 400px;
+            margin-bottom: 10px;
+        }
+
+        .prompt {
+            color: #58a6ff;
+            font-weight: bold;
+        }
+
+        .command {
+            color: #fff;
+        }
+
+        .output {
+            color: #8b949e;
+            margin-bottom: 8px;
+        }
+
+        .terminal-input-group {
+            display: flex;
+            align-items: center;
+            background: transparent;
+            border: none;
+        }
+
+        .terminal-input {
+            background: transparent;
+            border: none;
+            color: #fff;
+            flex: 1;
+            outline: none;
+            caret-color: #58a6ff;
+        }
+    </style>
+    <script src="{{ url_for('static', filename='js/darkmode.js') }}"></script>
+</head>
+
+<body>
+    <nav class="navbar-institutional">
+        <div class="navbar-brand-group">
+            <h4 class="logo-text">FNOGUERA CLUSTER</h4>
+        </div>
+
+        <div class="navbar-nav-group">
+            <a href="/dashboard" class="navbar-link">
+                <i class="fas fa-chart-line"></i> Resumen
+            </a>
+            <a href="/noticias" class="navbar-link">
+                <i class="fas fa-newspaper"></i> Noticias
+            </a>
+            <a href="/proyectos" class="navbar-link">
+                <i class="fas fa-project-diagram"></i> Proyectos
+            </a>
+            <a href="/recursos" class="navbar-link">
+                <i class="fas fa-server"></i> Recursos
+            </a>
+            <a href="/solicitud" class="navbar-link">
+                <i class="fas fa-file-alt"></i> Solicitud
+            </a>
+            <a href="/perfil" class="navbar-link">
+                <i class="fas fa-user"></i> Perfil
+            </a>
+            {% if is_admin %}
+            <a href="/usuarios" class="navbar-link">
+                <i class="fas fa-users"></i> Usuarios
+            </a>
+            {% endif %}
+            
+            
+            
+            <button class="btn btn-link navbar-link border-0" onclick="toggleTheme()" title="Cambiar Tema">
+                <i class="fas fa-moon theme-toggle-icon"></i>
+            </button>
+            <div class="dropdown d-inline-block">
+                <button class="btn btn-link navbar-link position-relative border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-bell"></i>
+                    {% if unread_count > 0 %}
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notif-badge">
+                        {{ unread_count }}
+                    </span>
+                    {% endif %}
+                </button>
+                <div class="dropdown-menu dropdown-menu-end glass-card border-0 shadow-lg p-0 notif-dropdown">
+                    <div class="p-3 border-bottom border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold text-white">Notificaciones</h6>
+                        <a href="/notificaciones/limpiar" class="x-small text-primary text-decoration-none">Marcar como leídas</a>
+                    </div>
+                    <div class="notif-list">
+                        {% for n in unread_notifs %}
+                        <div class="p-3 border-bottom border-secondary border-opacity-10 notif-item">
+                            <div class="d-flex align-items-start">
+                                <div class="bg-primary bg-opacity-10 p-2 rounded-circle me-3">
+                                    <i class="fas {% if n.tipo == 'SOLICITUD' %}fa-file-invoice{% else %}fa-info-circle{% endif %} text-primary small"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <p class="mb-1 small text-white notif-message">{{ n.mensaje }}</p>
+                                    <span class="x-small text-muted">{{ n.fecha.strftime('%d/%m %H:%M') }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="p-4 text-center">
+                            <i class="fas fa-bell-slash text-muted mb-2 d-block fa-lg"></i>
+                            <p class="text-muted small mb-0">No hay notificaciones nuevas</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <a href="/logout" class="navbar-link logout">
+                <i class="fas fa-sign-out-alt"></i> Salir
+            </a>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <header class="mb-5 d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="fw-bold">Terminal SSH</h2>
+                <p class="text-muted">Acceso directo a los nodos de computación autorizados</p>
+            </div>
+            <a href="/dashboard" class="btn btn-outline-dark">
+                <i class="fas fa-arrow-left me-2"></i> Volver al Dashboard
+            </a>
+        </header>
+
+        <div class="terminal-container">
+            <div class="terminal-header">
+                <div class="terminal-dots">
+                    <div class="dot dot-red"></div>
+                    <div class="dot dot-yellow"></div>
+                    <div class="dot dot-green"></div>
+                </div>
+                <div class="small text-muted">ssh - user@cluster-nidtec-node01</div>
+                <div><i class="fas fa-lock text-success small"></i></div>
+            </div>
+
+            <div class="terminal-output" id="terminalOutput">
+                <div class="output">Welcome to FNOGUERA CLUSTER OS 22.04 LTS (GNU/Linux 5.15.0-x86_64)</div>
+                <div class="output">Last login: Mon May 04 11:35:12 2026 from 10.0.5.122</div>
+                <div class="output">Authorized node access: node-01, node-02</div>
+                <br>
+                <div>
+                    <span class="prompt">user@cluster:~$</span>
+                    <span class="command">squeue</span>
+                </div>
+                <div class="output"> JOBID PARTITION NAME USER ST TIME NODES NODELIST(REASON)</div>
+                <div class="output"> 45821 compute fluid_si jperez R 12:45 2 node-[01-02]</div>
+                <br>
+                <div>
+                    <span class="prompt">user@cluster:~$</span>
+                    <span class="command">_</span>
+                </div>
+            </div>
+
+            <div class="terminal-input-group mt-3">
+                <span class="prompt me-2">user@cluster:~$</span>
+                <input type="text" class="terminal-input" placeholder="Escriba un comando..." autofocus>
+            </div>
+        </div>
+
+        <div class="mt-4 glass-card border-0 bg-info bg-opacity-10">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-info-circle text-info fa-2x me-3"></i>
+                <div>
+                    <h6 class="fw-bold mb-1">Información de Conexión</h6>
+                    <p class="small mb-0">Usted tiene acceso autorizado a través de la clave SSH generada
+                        automáticamente para su usuario. No se requiere contraseña adicional.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

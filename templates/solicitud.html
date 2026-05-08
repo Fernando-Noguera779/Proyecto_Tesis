@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FNOGUERA CLUSTER - Solicitud</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/darkmode.js') }}"></script>
+</head>
+
+<body>
+    <nav class="navbar-institutional">
+        <div class="navbar-brand-group">
+            <h4 class="logo-text">FNOGUERA CLUSTER</h4>
+        </div>
+
+        <div class="navbar-nav-group">
+            <a href="/dashboard" class="navbar-link">
+                <i class="fas fa-chart-line"></i> Resumen
+            </a>
+            <a href="/noticias" class="navbar-link">
+                <i class="fas fa-newspaper"></i> Noticias
+            </a>
+            <a href="/proyectos" class="navbar-link">
+                <i class="fas fa-project-diagram"></i> Proyectos
+            </a>
+            <a href="/recursos" class="navbar-link">
+                <i class="fas fa-server"></i> Recursos
+            </a>
+            <a href="/solicitud" class="navbar-link active">
+                <i class="fas fa-file-alt"></i> Solicitud
+            </a>
+            <a href="/perfil" class="navbar-link">
+                <i class="fas fa-user"></i> Perfil
+            </a>
+            {% if is_admin %}
+            <a href="/usuarios" class="navbar-link">
+                <i class="fas fa-users"></i> Usuarios
+            </a>
+            {% endif %}
+            
+            
+            
+            <button class="btn btn-link navbar-link border-0" onclick="toggleTheme()" title="Cambiar Tema">
+                <i class="fas fa-moon theme-toggle-icon"></i>
+            </button>
+            <div class="dropdown d-inline-block">
+                <button class="btn btn-link navbar-link position-relative border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-bell"></i>
+                    {% if unread_count > 0 %}
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notif-badge">
+                        {{ unread_count }}
+                    </span>
+                    {% endif %}
+                </button>
+                <div class="dropdown-menu dropdown-menu-end glass-card border-0 shadow-lg p-0 notif-dropdown">
+                    <div class="p-3 border-bottom border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold text-white">Notificaciones</h6>
+                        <a href="/notificaciones/limpiar" class="x-small text-primary text-decoration-none">Marcar como leídas</a>
+                    </div>
+                    <div class="notif-list">
+                        {% for n in unread_notifs %}
+                        <div class="p-3 border-bottom border-secondary border-opacity-10 notif-item">
+                            <div class="d-flex align-items-start">
+                                <div class="bg-primary bg-opacity-10 p-2 rounded-circle me-3">
+                                    <i class="fas {% if n.tipo == 'SOLICITUD' %}fa-file-invoice{% else %}fa-info-circle{% endif %} text-primary small"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <p class="mb-1 small text-white notif-message">{{ n.mensaje }}</p>
+                                    <span class="x-small text-muted">{{ n.fecha.strftime('%d/%m %H:%M') }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="p-4 text-center">
+                            <i class="fas fa-bell-slash text-muted mb-2 d-block fa-lg"></i>
+                            <p class="text-muted small mb-0">No hay notificaciones nuevas</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <a href="/logout" class="navbar-link logout">
+                <i class="fas fa-sign-out-alt"></i> Salir
+            </a>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <header class="mb-5">
+            <h2 class="fw-bold">Nueva Solicitud de Uso</h2>
+            <p class="text-muted">Complete el formulario para solicitar recursos del Cluster</p>
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} glass-card border-0 mb-4" role="alert">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <div class="glass-card">
+            <form method="POST">
+                <!-- 1. Fecha de solicitud -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-4">
+                        <label for="fecha_solicitud" class="form-label fw-bold">Fecha de Solicitud</label>
+                        {% if is_admin %}
+                        <input type="date" id="fecha_solicitud" name="fecha_solicitud"
+                            class="form-control form-control-premium" value="{{ now.strftime('%Y-%m-%d') }}"
+                            title="Fecha de solicitud (Editable por Admin)">
+                        {% else %}
+                        <input type="text" id="fecha_solicitud_view" class="form-control form-control-premium"
+                            value="{{ now.strftime('%d/%m/%Y') }}" readonly title="Fecha automática de solicitud">
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 2. Nombres y Apellidos -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-12">
+                        <label for="nombre_solicitante" class="form-label fw-bold">Nombres y Apellidos</label>
+                        <input type="text" id="nombre_solicitante" name="nombre_solicitante"
+                            class="form-control form-control-premium" value="{{ session['user_name'] }}" required
+                            title="Nombre del solicitante">
+                    </div>
+                </div>
+
+                <!-- 3. Correo electrónico -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-12">
+                        <label for="correo_solicitante" class="form-label fw-bold">Correo Electrónico</label>
+                        <input type="email" id="correo_solicitante" name="correo_solicitante"
+                            class="form-control form-control-premium" value="{{ user_email }}" required
+                            title="Correo del solicitante">
+                    </div>
+                </div>
+
+                <hr class="border-secondary opacity-25 my-4">
+
+                <!-- 4 & 5. Facultad y Carrera -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-6">
+                        <label for="facultad" class="form-label fw-bold">Facultad</label>
+                        <input type="text" id="facultad" name="facultad" class="form-control form-control-premium"
+                            placeholder="Ej: Facultad Politécnica, UNA" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="carrera" class="form-label fw-bold">Carrera</label>
+                        <input type="text" id="carrera" name="carrera" class="form-control form-control-premium"
+                            placeholder="Ej: Ingeniería en Informática" required>
+                    </div>
+                </div>
+
+                <!-- 6. Asignatura/Módulo -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-12">
+                        <label for="asignatura" class="form-label fw-bold">Asignatura/Módulo</label>
+                        <input type="text" id="asignatura" name="asignatura" class="form-control form-control-premium"
+                            placeholder="Nombre de la asignatura o módulo">
+                    </div>
+                </div>
+
+                <!-- 7. Profesor Tutor -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-12">
+                        <label for="tutor" class="form-label fw-bold">Profesor Tutor</label>
+                        <input type="text" id="tutor" name="tutor" class="form-control form-control-premium"
+                            placeholder="Nombre completo del tutor responsable" required>
+                    </div>
+                </div>
+
+                <!-- 8. Fecha de inicio | Fecha Finalización (estimada) -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-6">
+                        <label for="fecha_inicio" class="form-label fw-bold">Fecha de Inicio</label>
+                        <input type="date" id="fecha_inicio" name="fecha_inicio"
+                            class="form-control form-control-premium" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="fecha_fin" class="form-label fw-bold">Fecha Finalización (estimada)</label>
+                        <input type="date" id="fecha_fin" name="fecha_fin" class="form-control form-control-premium"
+                            required>
+                    </div>
+                </div>
+
+                <!-- 9. Proyecto -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-12">
+                        <label for="proyecto" class="form-label fw-bold">Proyecto</label>
+                        <textarea id="proyecto" name="proyecto" class="form-control form-control-premium" rows="3"
+                            placeholder="Descripción detallada del proyecto" required></textarea>
+                    </div>
+                </div>
+
+                <!-- 10. Software -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-12">
+                        <label for="software" class="form-label fw-bold">Software</label>
+                        <textarea id="software" name="software" class="form-control form-control-premium" rows="3"
+                            placeholder="Software y recursos específicos requeridos"></textarea>
+                    </div>
+                </div>
+
+                <!-- 11. Observaciones -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-12">
+                        <label for="observaciones" class="form-label fw-bold">Observaciones</label>
+                        <textarea id="observaciones" name="observaciones" class="form-control form-control-premium"
+                            rows="2" placeholder="Cualquier información adicional relevante..."></textarea>
+                    </div>
+                </div>
+
+                <div class="mt-5 d-flex justify-content-end">
+                    <a href="/dashboard" class="btn btn-outline-light me-3 px-4">Cancelar</a>
+                    <button type="submit" class="btn btn-premium px-5">Enviar Solicitud</button>
+                </div>
+            </form>
+        </div>
+    </main>
+</body>
+
+</html>

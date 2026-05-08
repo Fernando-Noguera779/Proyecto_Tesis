@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FNOGUERA CLUSTER - Noticias</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/darkmode.js') }}"></script>
+</head>
+
+<body>
+    <nav class="navbar-institutional">
+        <div class="navbar-brand-group">
+            <h4 class="logo-text">FNOGUERA CLUSTER</h4>
+        </div>
+
+        <div class="navbar-nav-group">
+            <a href="/dashboard" class="navbar-link">
+                <i class="fas fa-chart-line"></i> Resumen
+            </a>
+            <a href="/noticias" class="navbar-link active">
+                <i class="fas fa-newspaper"></i> Noticias
+            </a>
+            <a href="/proyectos" class="navbar-link">
+                <i class="fas fa-project-diagram"></i> Proyectos
+            </a>
+            <a href="/recursos" class="navbar-link">
+                <i class="fas fa-server"></i> Recursos
+            </a>
+            <a href="/solicitud" class="navbar-link">
+                <i class="fas fa-file-alt"></i> Solicitud
+            </a>
+            <a href="/perfil" class="navbar-link">
+                <i class="fas fa-user"></i> Perfil
+            </a>
+            {% if is_admin %}
+            <a href="/usuarios" class="navbar-link">
+                <i class="fas fa-users"></i> Usuarios
+            </a>
+            {% endif %}
+            
+            <button class="btn btn-link navbar-link border-0" onclick="toggleTheme()" title="Cambiar Tema">
+                <i class="fas fa-moon theme-toggle-icon"></i>
+            </button>
+            
+            <div class="dropdown d-inline-block">
+                <button class="btn btn-link navbar-link position-relative border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-bell"></i>
+                    {% if unread_count > 0 %}
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notif-badge">
+                        {{ unread_count }}
+                    </span>
+                    {% endif %}
+                </button>
+                <div class="dropdown-menu dropdown-menu-end glass-card border-0 shadow-lg p-0 notif-dropdown">
+                    <div class="p-3 border-bottom border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold text-white">Notificaciones</h6>
+                        <a href="/notificaciones/limpiar" class="x-small text-primary text-decoration-none">Marcar como leídas</a>
+                    </div>
+                    <div class="notif-list">
+                        {% for n in unread_notifs %}
+                        <div class="p-3 border-bottom border-secondary border-opacity-10 notif-item">
+                            <div class="d-flex align-items-start">
+                                <div class="bg-primary bg-opacity-10 p-2 rounded-circle me-3">
+                                    <i class="fas {% if n.tipo == 'SOLICITUD' %}fa-file-invoice{% else %}fa-info-circle{% endif %} text-primary small"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <p class="mb-1 small text-white notif-message">{{ n.mensaje }}</p>
+                                    <span class="x-small text-muted">{{ n.fecha.strftime('%d/%m %H:%M') }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="p-4 text-center">
+                            <i class="fas fa-bell-slash text-muted mb-2 d-block fa-lg"></i>
+                            <p class="text-muted small mb-0">No hay notificaciones nuevas</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <a href="/logout" class="navbar-link logout">
+                <i class="fas fa-sign-out-alt"></i> Salir
+            </a>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <header class="d-flex justify-content-between align-items-end mb-5">
+            <div>
+                <h2 class="fw-bold">Centro de Noticias</h2>
+                <p class="text-muted mb-0">Comunicados oficiales y eventos del Cluster NIDTEC</p>
+            </div>
+            {% if is_admin %}
+            <button class="btn btn-premium shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaNoticia">
+                <i class="fas fa-plus me-2"></i> Redactar Noticia
+            </button>
+            {% endif %}
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show br-075 mb-4" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <div class="glass-card p-0 overflow-hidden">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 custom-table">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Título de la Noticia</th>
+                            <th>Descripción</th>
+                            <th>Fecha del Evento</th>
+                            <th>Publicado el</th>
+                            {% if is_admin %}
+                            <th class="text-end pe-4">Gestión</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for noticia in noticias %}
+                        <tr class="table-row-hover">
+                            <td class="ps-4">
+                                <div class="d-flex align-items-center">
+                                    <div class="bg-primary bg-opacity-10 p-2 rounded-3 me-3">
+                                        <i class="fas fa-bullhorn text-primary"></i>
+                                    </div>
+                                    <span class="fw-bold text-dark">{{ noticia.titulo }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <p class="mb-0 text-muted small text-truncate news-desc-truncate" title="{{ noticia.descripcion }}">
+                                    {{ noticia.descripcion }}
+                                </p>
+                            </td>
+                            <td>
+                                {% if noticia.fecha_evento %}
+                                <div class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 rounded-pill py-1 px-3">
+                                    <i class="far fa-calendar-check me-1"></i> {{ noticia.fecha_evento.strftime('%d/%m/%Y') }}
+                                </div>
+                                {% else %}
+                                <span class="text-muted small">Informativo</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="text-muted small">{{ noticia.fecha_creacion.strftime('%d/%m/%Y') }}</span>
+                            </td>
+                            {% if is_admin %}
+                            <td class="text-end pe-4">
+                                <a href="{{ url_for('eliminar_noticia', id=noticia.id_noticia) }}" 
+                                   class="btn btn-outline-danger btn-sm border-0 bg-danger bg-opacity-10"
+                                   title="Eliminar Noticia"
+                                   onclick="return confirm('¿Eliminar esta noticia?')">
+                                    <i class="fas fa-trash-alt"></i>
+                                </a>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5">
+                                <i class="fas fa-newspaper text-muted mb-3 fa-3x d-block"></i>
+                                <p class="text-muted mb-0">No hay noticias publicadas en este momento.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    {% if is_admin %}
+    <!-- Modal Nueva Noticia -->
+    <div class="modal fade" id="modalNuevaNoticia" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content glass-card border-0">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold text-dark">Publicar Nueva Noticia</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('crear_noticia') }}" method="POST">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Título</label>
+                            <input type="text" name="titulo" class="form-control form-control-premium" placeholder="Ej: Mantenimiento del Cluster" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Descripción / Detalles</label>
+                            <textarea name="descripcion" class="form-control form-control-premium" rows="4" placeholder="Describa la noticia aquí..." required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Fecha del Evento (Opcional)</label>
+                            <input type="date" name="fecha_evento" class="form-control form-control-premium">
+                            <div class="form-text x-small">Se notificará a todos 7 días antes de esta fecha.</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0">
+                        <button type="button" class="btn btn-link text-muted text-decoration-none" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-premium">Publicar Ahora</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

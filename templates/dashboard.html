@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FNOGUERA CLUSTER - Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/darkmode.js') }}"></script>
+</head>
+
+<body>
+    <nav class="navbar-institutional">
+        <div class="navbar-brand-group">
+            <h4 class="logo-text">FNOGUERA CLUSTER</h4>
+        </div>
+
+        <div class="navbar-nav-group">
+            <a href="/dashboard" class="navbar-link active">
+                <i class="fas fa-chart-line"></i> Resumen
+            </a>
+            <a href="/noticias" class="navbar-link">
+                <i class="fas fa-newspaper"></i> Noticias
+            </a>
+            <a href="/proyectos" class="navbar-link">
+                <i class="fas fa-project-diagram"></i> Proyectos
+            </a>
+            <a href="/recursos" class="navbar-link">
+                <i class="fas fa-server"></i> Recursos
+            </a>
+            <a href="/solicitud" class="navbar-link">
+                <i class="fas fa-file-alt"></i> Solicitud
+            </a>
+            <a href="/perfil" class="navbar-link">
+                <i class="fas fa-user"></i> Perfil
+            </a>
+            {% if is_admin %}
+            <a href="/usuarios" class="navbar-link">
+                <i class="fas fa-users"></i> Usuarios
+            </a>
+            {% endif %}
+            
+            
+            
+            <button class="btn btn-link navbar-link border-0" onclick="toggleTheme()" title="Cambiar Tema">
+                <i class="fas fa-moon theme-toggle-icon"></i>
+            </button>
+            <div class="dropdown d-inline-block">
+                <button class="btn btn-link navbar-link position-relative border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-bell"></i>
+                    {% if unread_count > 0 %}
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notif-badge">
+                        {{ unread_count }}
+                    </span>
+                    {% endif %}
+                </button>
+                <div class="dropdown-menu dropdown-menu-end glass-card border-0 shadow-lg p-0 notif-dropdown">
+                    <div class="p-3 border-bottom border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold text-white">Notificaciones</h6>
+                        <a href="/notificaciones/limpiar" class="x-small text-primary text-decoration-none">Marcar como leídas</a>
+                    </div>
+                    <div class="notif-list">
+                        {% for n in unread_notifs %}
+                        <div class="p-3 border-bottom border-secondary border-opacity-10 notif-item">
+                            <div class="d-flex align-items-start">
+                                <div class="bg-primary bg-opacity-10 p-2 rounded-circle me-3">
+                                    <i class="fas {% if n.tipo == 'SOLICITUD' %}fa-file-invoice{% else %}fa-info-circle{% endif %} text-primary small"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <p class="mb-1 small text-white notif-message">{{ n.mensaje }}</p>
+                                    <span class="x-small text-muted">{{ n.fecha.strftime('%d/%m %H:%M') }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="p-4 text-center">
+                            <i class="fas fa-bell-slash text-muted mb-2 d-block fa-lg"></i>
+                            <p class="text-muted small mb-0">No hay notificaciones nuevas</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <a href="/logout" class="navbar-link logout">
+                <i class="fas fa-sign-out-alt"></i> Salir
+            </a>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <header class="d-flex justify-content-between align-items-center mb-5">
+            <div>
+                <h2 class="fw-bold">{% if is_admin %}Gestión de Solicitudes{% else %}Mis Solicitudes{% endif %}</h2>
+                <p class="text-muted">{% if is_admin %}Administre las peticiones de recursos del Cluster{% else %}Estado
+                    de sus peticiones de recursos{% endif %}</p>
+            </div>
+            <div class="d-flex align-items-center">
+                <div class="glass-card py-2 px-3 d-flex align-items-center">
+                    <div class="bg-success rounded-circle me-2 status-indicator"></div>
+                    <span class="small">Sistema Online</span>
+                </div>
+            </div>
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} glass-card border-0 mb-4" role="alert">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <div class="row g-4">
+            <!-- Main Content: Requests Table -->
+            <div class="col-lg-9">
+                <div class="glass-card p-0 shadow-sm">
+                    <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 custom-table">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Solicitud</th>
+                            <th>Investigador / Usuario</th>
+                            <th>Proyecto / Tutor</th>
+                            <th>Periodo de Uso</th>
+                            <th>Estado</th>
+                            <th class="text-end pe-4">Gestión</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in solicitudes %}
+                        <tr class="table-row-hover">
+                            <td class="ps-4">
+                                <span class="id-badge">#{{ s.id_solicitud }}</span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <img src="https://ui-avatars.com/api/?name={{ s.usuario.nombre_apellido }}&background=random&size=40"
+                                        class="rounded-circle border border-2 border-primary border-opacity-25 me-3"
+                                        alt="Avatar">
+                                    <div class="d-flex flex-column">
+                                        <span class="fw-bold text-dark">{{ s.nombre_solicitante if s.nombre_solicitante
+                                            else s.usuario.nombre_apellido }}</span>
+                                        <span class="text-muted text-xs">{{ s.correo_solicitante if s.correo_solicitante
+                                            else s.usuario.correo_electronico }}</span>
+                                    </div>
+                                    {% if is_admin %}
+                                    {% if not s.usuario.es_administrador %}
+                                    <a href="{{ url_for('promover_usuario', id=s.usuario.id_usuario) }}"
+                                        class="ms-3 btn btn-outline-primary btn-sm rounded-pill py-0 px-2 btn-promote-xs"
+                                        title="Promover a Admin">
+                                        <i class="fas fa-crown"></i>
+                                    </a>
+                                    {% elif s.usuario.id_usuario != session['user_id'] %}
+                                    <a href="{{ url_for('degradar_usuario', id=s.usuario.id_usuario) }}"
+                                        class="ms-3 btn btn-outline-danger btn-sm rounded-pill py-0 px-2 btn-promote-xs"
+                                        title="Remover Admin">
+                                        <i class="fas fa-user-minus"></i>
+                                    </a>
+                                    {% endif %}
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex flex-column">
+                                    <span class="text-dark fw-semibold text-truncate project-name-truncate"
+                                        title="{{ s.nombre_proyecto }}">{{ s.nombre_proyecto }}</span>
+                                    <span class="text-muted text-xs"><i class="fas fa-chalkboard-teacher me-1"></i> {{
+                                        s.profesor_tutor }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="date-container">
+                                    <div class="text-dark fw-medium"><i class="far fa-calendar-alt me-1"></i> {{
+                                        s.fecha_inicio.strftime('%d %b, %Y') }}</div>
+                                    <div class="text-muted mt-1 text-xs"><i class="fas fa-clock me-1"></i> Hasta {{
+                                        s.fecha_finalizacion_estimada.strftime('%d %b, %Y') }}</div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if s.estado == 'PENDIENTE' %}
+                                <div class="status-pill status-pending">
+                                    <span class="dot"></span> Pendiente
+                                </div>
+                                {% elif s.estado == 'ACEPTADA' %}
+                                <div class="status-pill status-accepted">
+                                    <span class="dot"></span> Autorizada
+                                </div>
+                                {% elif s.estado == 'FINALIZADO' %}
+                                <div class="status-pill status-finalized">
+                                    <span class="dot"></span> Finalizada
+                                </div>
+                                {% else %}
+                                <div class="status-pill status-rejected">
+                                    <span class="dot"></span> Rechazada
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-4">
+                                <div class="d-flex justify-content-end align-items-center gap-2">
+                                    {% if is_admin %}
+                                    {% if s.estado == 'PENDIENTE' %}
+                                    <button class="btn btn-success-soft btn-sm" data-bs-toggle="modal"
+                                        data-bs-target="#modalAprobar{{ s.id_solicitud }}" title="Aprobar">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                    <a href="{{ url_for('rechazar_solicitud', id=s.id_solicitud) }}"
+                                        class="btn btn-warning-soft btn-sm" title="Rechazar">
+                                        <i class="fas fa-times"></i>
+                                    </a>
+                                    {% endif %}
+                                    <a href="{{ url_for('borrar_solicitud', id=s.id_solicitud) }}"
+                                        class="btn btn-danger-soft btn-sm" title="Borrar Permanentemente"
+                                        onclick="return confirm('¿Está seguro de que desea eliminar permanentemente esta solicitud #{{ s.id_solicitud }}?')">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </a>
+                                    {% endif %}
+                                    {% if s.estado == 'ACEPTADA' and s.acceso_nodos %}
+                                    <a href="/terminal" class="btn btn-dark btn-sm" title="Abrir Terminal SSH">
+                                        <i class="fas fa-terminal me-1"></i> Terminal
+                                    </a>
+                                    {% endif %}
+                                    <button class="btn btn-outline-primary btn-sm border-0 bg-primary bg-opacity-10"
+                                        data-bs-toggle="modal" data-bs-target="#modalDetalles{{ s.id_solicitud }}"
+                                        title="Ver Detalles Completos">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-muted">
+                                <i class="fas fa-folder-open fa-3x mb-3"></i>
+                                <p>No hay solicitudes registradas.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar: News Column -->
+    <div class="col-lg-3">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h5 class="fw-bold mb-0">Últimas Noticias</h5>
+            <a href="/noticias" class="text-primary x-small text-decoration-none fw-bold">Ver todas</a>
+        </div>
+        
+        <div class="news-sidebar-list">
+            {% for n in noticias_sidebar %}
+            <div class="glass-card p-3 mb-3 news-item-mini border-0 shadow-sm">
+                <div class="d-flex align-items-start">
+                    <div class="bg-primary bg-opacity-10 p-2 rounded-circle me-3">
+                        <i class="fas fa-bullhorn text-primary small"></i>
+                    </div>
+                    <div class="flex-grow-1 overflow-hidden">
+                        <h6 class="fw-bold mb-1 text-dark text-truncate">{{ n.titulo }}</h6>
+                        <p class="x-small text-muted mb-2 line-clamp-2">{{ n.descripcion }}</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-xxs text-muted">{{ n.fecha_creacion.strftime('%d/%m/%Y') }}</span>
+                            {% if n.fecha_evento %}
+                            <span class="badge bg-info bg-opacity-10 text-info x-small py-0 px-2 rounded-pill">
+                                <i class="far fa-calendar-alt me-1"></i> {{ n.fecha_evento.strftime('%d/%m') }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="text-center py-4 bg-light bg-opacity-50 rounded-4">
+                <i class="fas fa-newspaper text-muted mb-2 fa-2x d-block"></i>
+                <p class="text-muted x-small">No hay noticias recientes</p>
+            </div>
+            {% endfor %}
+        </div>
+        
+    </div>
+</div>
+        <!-- Modals (Moved outside the table for stability) -->
+        {% for s in solicitudes %}
+        <!-- Modal Aprobar (Solo Admin) -->
+        {% if is_admin and s.estado == 'PENDIENTE' %}
+        <div class="modal fade" id="modalAprobar{{ s.id_solicitud }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content glass-card border-0">
+                    <div class="modal-header border-0">
+                        <h5 class="modal-title fw-bold text-dark">Autorización de Solicitud #{{ s.id_solicitud }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form action="{{ url_for('aceptar_solicitud', id=s.id_solicitud) }}" method="POST">
+                        <div class="modal-body">
+                            <p class="small text-muted mb-4">Especifique los parámetros de acceso para <strong>{{
+                                    s.usuario.nombre_apellido }}</strong></p>
+
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" name="acceso_nodos"
+                                    id="nodos{{ s.id_solicitud }}">
+                                <label class="form-check-label" for="nodos{{ s.id_solicitud }}">Acceso a Nodos
+                                    Autorizado</label>
+                            </div>
+
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" name="maquina_virtual"
+                                    id="mv{{ s.id_solicitud }}">
+                                <label class="form-check-label" for="mv{{ s.id_solicitud }}">Máquina Virtual
+                                    Autorizada</label>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Características de la MV / Recursos</label>
+                                <textarea name="detalles_mv" class="form-control form-control-premium" rows="2"
+                                    placeholder="Ej: 4 vCPU, 8GB RAM, 100GB SSD..."></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer border-0">
+                            <button type="button" class="btn btn-outline-secondary"
+                                data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-dark px-4">Autorizar Acceso</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Modal Detalles -->
+        <div class="modal fade" id="modalDetalles{{ s.id_solicitud }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content glass-card border-0">
+                    <div class="modal-header border-0">
+                        <h5 class="modal-title fw-bold text-dark">Detalles de la Solicitud #{{ s.id_solicitud }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-4 text-dark">
+                            <div class="col-md-6">
+                                <label class="small text-muted d-block">Usuario</label>
+                                <span class="fw-bold">{{ s.nombre_solicitante if s.nombre_solicitante else
+                                    s.usuario.nombre_apellido }}</span>
+                            </div>
+                            <div class="col-md-6 text-md-end">
+                                <label class="small text-muted d-block">Fecha de Solicitud</label>
+                                <span class="text-primary fw-bold">{{ s.fecha_solicitud.strftime('%d/%m/%Y') if
+                                    s.fecha_solicitud else 'N/A' }}</span>
+                            </div>
+                            <div class="col-md-12">
+                                <label class="small text-muted d-block">Correo</label>
+                                <span class="text-break">{{ s.correo_solicitante if s.correo_solicitante else
+                                    s.usuario.correo_electronico }}</span>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="small text-muted d-block">Facultad / Carrera</label>
+                                <span>{{ s.facultad }} / {{ s.carrera }}</span>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="small text-muted d-block">Proyecto</label>
+                                <span class="fw-bold">{{ s.nombre_proyecto }}</span>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="small text-muted d-block">Asignatura / Módulo</label>
+                                <span>{{ s.asignatura_modulo or 'N/A' }}</span>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="small text-muted d-block">Tutor</label>
+                                <span>{{ s.profesor_tutor }}</span>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="small text-muted d-block">Periodo</label>
+                                <span>{{ s.fecha_inicio.strftime('%d/%m/%Y') }} - {{
+                                    s.fecha_finalizacion_estimada.strftime('%d/%m/%Y') }}</span>
+                            </div>
+                            <div class="col-md-12">
+                                <label class="small text-muted d-block">Software Requerido</label>
+                                <p class="mb-0">{{ s.software_requerido }}</p>
+                            </div>
+                            <div class="col-md-12">
+                                <label class="small text-muted d-block">Observaciones del Usuario</label>
+                                <p class="mb-0 italic text-muted">{{ s.observaciones or 'Sin observaciones' }}</p>
+                            </div>
+
+                            {% if s.estado == 'ACEPTADA' %}
+                            <div class="col-md-12 pt-3 border-top border-secondary border-opacity-25">
+                                <h6 class="fw-bold text-success mb-3">Información de Autorización</h6>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <label class="small text-muted d-block">Acceso a Nodos</label>
+                                        <span
+                                            class="badge {% if s.acceso_nodos %}bg-success{% else %}bg-danger{% endif %}">
+                                            {% if s.acceso_nodos %}SÍ{% else %}NO{% endif %}
+                                        </span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="small text-muted d-block">Máquina Virtual</label>
+                                        <span
+                                            class="badge {% if s.maquina_virtual %}bg-success{% else %}bg-danger{% endif %}">
+                                            {% if s.maquina_virtual %}SÍ{% else %}NO{% endif %}
+                                        </span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="small text-muted d-block">Autorizado por</label>
+                                        <span>{{ s.autorizado_por or 'Admin' }}</span>
+                                    </div>
+                                    {% if s.detalles_mv %}
+                                    <div class="col-md-12 mt-3">
+                                        <label class="small text-muted d-block">Detalles de Recursos</label>
+                                        <p class="mb-0">{{ s.detalles_mv }}</p>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

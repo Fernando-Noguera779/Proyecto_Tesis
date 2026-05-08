@@ -1,0 +1,5 @@
+-Abrir la carpeta de CLUSTER-NIDTEC con VSC o Antigravity
+-Dar clic al boton de run 
+-Ingresar al link del sistema
+-Logearse o registrarse
+-Completar un formulario

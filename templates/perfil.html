@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FNOGUERA CLUSTER - Perfil</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/darkmode.js') }}"></script>
+</head>
+
+<body>
+    <nav class="navbar-institutional">
+        <div class="navbar-brand-group">
+            <h4 class="logo-text">FNOGUERA CLUSTER</h4>
+        </div>
+
+        <div class="navbar-nav-group">
+            <a href="/dashboard" class="navbar-link">
+                <i class="fas fa-chart-line"></i> Resumen
+            </a>
+            <a href="/noticias" class="navbar-link">
+                <i class="fas fa-newspaper"></i> Noticias
+            </a>
+            <a href="/proyectos" class="navbar-link">
+                <i class="fas fa-project-diagram"></i> Proyectos
+            </a>
+            <a href="/recursos" class="navbar-link">
+                <i class="fas fa-server"></i> Recursos
+            </a>
+            <a href="/solicitud" class="navbar-link">
+                <i class="fas fa-file-alt"></i> Solicitud
+            </a>
+            <a href="/perfil" class="navbar-link active">
+                <i class="fas fa-user"></i> Perfil
+            </a>
+            {% if is_admin %}
+            <a href="/usuarios" class="navbar-link">
+                <i class="fas fa-users"></i> Usuarios
+            </a>
+            {% endif %}
+            
+            
+            
+            <button class="btn btn-link navbar-link border-0" onclick="toggleTheme()" title="Cambiar Tema">
+                <i class="fas fa-moon theme-toggle-icon"></i>
+            </button>
+            <div class="dropdown d-inline-block">
+                <button class="btn btn-link navbar-link position-relative border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-bell"></i>
+                    {% if unread_count > 0 %}
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notif-badge">
+                        {{ unread_count }}
+                    </span>
+                    {% endif %}
+                </button>
+                <div class="dropdown-menu dropdown-menu-end glass-card border-0 shadow-lg p-0 notif-dropdown">
+                    <div class="p-3 border-bottom border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold text-white">Notificaciones</h6>
+                        <a href="/notificaciones/limpiar" class="x-small text-primary text-decoration-none">Marcar como leídas</a>
+                    </div>
+                    <div class="notif-list">
+                        {% for n in unread_notifs %}
+                        <div class="p-3 border-bottom border-secondary border-opacity-10 notif-item">
+                            <div class="d-flex align-items-start">
+                                <div class="bg-primary bg-opacity-10 p-2 rounded-circle me-3">
+                                    <i class="fas {% if n.tipo == 'SOLICITUD' %}fa-file-invoice{% else %}fa-info-circle{% endif %} text-primary small"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <p class="mb-1 small text-white notif-message">{{ n.mensaje }}</p>
+                                    <span class="x-small text-muted">{{ n.fecha.strftime('%d/%m %H:%M') }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="p-4 text-center">
+                            <i class="fas fa-bell-slash text-muted mb-2 d-block fa-lg"></i>
+                            <p class="text-muted small mb-0">No hay notificaciones nuevas</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <a href="/logout" class="navbar-link logout">
+                <i class="fas fa-sign-out-alt"></i> Salir
+            </a>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <header class="mb-5">
+            <h2 class="fw-bold">Perfil de Usuario</h2>
+            <p class="text-muted">Gestione su información personal y preferencias</p>
+        </header>
+
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="glass-card text-center">
+                    <div class="position-relative d-inline-block mb-4">
+                        {% if user.foto_perfil and user.foto_perfil != 'default_avatar.png' %}
+                        <img src="{{ url_for('static', filename='uploads/' + user.foto_perfil) }}"
+                            class="rounded-circle border border-4 border-primary shadow profile-img-lg"
+                            alt="Foto de Perfil">
+                        {% else %}
+                        <img src="https://ui-avatars.com/api/?name={{ user.nombre_apellido }}&background=6366f1&color=fff&size=128"
+                            class="rounded-circle border border-4 border-primary shadow profile-img-lg"
+                            alt="Foto de Perfil">
+                        {% endif %}
+                        <button class="btn btn-primary btn-sm position-absolute bottom-0 end-0 rounded-circle"
+                            data-bs-toggle="modal" data-bs-target="#modalFoto" title="Cambiar Foto"
+                            aria-label="Cambiar Foto">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                    </div>
+                    <h4 class="fw-bold mb-1">{{ user.nombre_apellido }}</h4>
+                    <span class="badge {% if user.es_administrador %}bg-primary{% else %}bg-secondary{% endif %} mb-3">
+                        {% if user.es_administrador %}Administrador{% else %}Usuario Estándar{% endif %}
+                    </span>
+                    <p class="text-muted small">Miembro desde: 2026</p>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }} glass-card border-0 mb-4 py-2" role="alert">
+                    {{ message }}
+                </div>
+                {% endfor %}
+                {% endif %}
+                {% endwith %}
+
+                <div class="glass-card">
+                    <h5 class="fw-bold mb-4">Información General</h5>
+                    <form action="/actualizar_perfil" method="POST">
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <label for="perfil_nombre" class="form-label fw-bold">Nombre Completo</label>
+                                <input type="text" id="perfil_nombre" name="nombre"
+                                    class="form-control form-control-premium" value="{{ user.nombre_apellido }}"
+                                    required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="perfil_correo" class="form-label fw-bold">Correo Electrónico</label>
+                                <input type="email" id="perfil_correo" name="correo"
+                                    class="form-control form-control-premium" value="{{ user.correo_electronico }}"
+                                    required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="perfil_rol" class="form-label fw-bold">Rol en el Sistema</label>
+                                <input type="text" id="perfil_rol" class="form-control form-control-premium"
+                                    value="{% if user.es_administrador %}Administrador de Cluster{% else %}Investigador / Estudiante{% endif %}"
+                                    readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="perfil_estado" class="form-label fw-bold">Estado de Cuenta</label>
+                                <input type="text" id="perfil_estado" class="form-control form-control-premium"
+                                    value="Activa" readonly>
+                            </div>
+                            <div class="col-md-12 text-end">
+                                <button type="submit" class="btn btn-dark px-4">
+                                    <i class="fas fa-save me-2"></i> Guardar Cambios
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <div class="mt-5 pt-4 border-top border-secondary border-opacity-25">
+                        <h5 class="fw-bold mb-4">Seguridad</h5>
+                        <button class="btn btn-outline-dark br-075" data-bs-toggle="modal"
+                            data-bs-target="#modalPassword">
+                            <i class="fas fa-key me-2"></i> Cambiar Contraseña
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Foto -->
+    <div class="modal fade" id="modalFoto" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content glass-card border-0">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold text-dark">Actualizar Foto de Perfil</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="/actualizar_foto" method="POST" enctype="multipart/form-data">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="foto" class="form-label">Seleccione una imagen (PNG, JPG, GIF)</label>
+                            <input type="file" class="form-control form-control-premium" id="foto" name="foto"
+                                accept="image/*" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0">
+                        <button type="button" class="btn btn-outline-secondary"
+                            data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-dark">Subir Imagen</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Password -->
+    <div class="modal fade" id="modalPassword" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content glass-card border-0">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold text-dark">Cambiar Contraseña</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="/cambiar_password" method="POST">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="current_password" class="form-label">Contraseña Actual</label>
+                            <input type="password" class="form-control form-control-premium" id="current_password"
+                                name="current_password" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="new_password" class="form-label">Nueva Contraseña</label>
+                            <input type="password" class="form-control form-control-premium" id="new_password"
+                                name="new_password" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0">
+                        <button type="button" class="btn btn-outline-secondary"
+                            data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-dark px-4">Actualizar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

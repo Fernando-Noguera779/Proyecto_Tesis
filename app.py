@@ -14,8 +14,15 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Configuración de base de datos (PostgreSQL)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:123@localhost/CLUSTER_NIDTEC'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:123@localhost:5433/CLUSTER_NIDTEC' # Actualizado para túnel SSH fnoguera@kepri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# FUERZA LA CODIFICACIÓN A UTF8 PARA EVITAR EL UNICODEDECODEERROR
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    "connect_args": {
+        "options": "-c client_encoding=utf8"
+    }
+}
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)

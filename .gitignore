@@ -1,0 +1,29 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- Entorno Virtual ---
+# Excluye la carpeta de entorno (ajusta si la llamas de otra forma)
+venv/
+.venv/
+env/
+.env
+
+# --- Configuración de IDEs ---
+.vscode/
+.idea/
+*.swp
+
+# --- Archivos de sistema ---
+.DS_Store
+Thumbs.db
+
+# --- Logs y Bases de Datos ---
+*.log
+*.sqlite
+*.db
+
+# --- Archivos específicos de tu proyecto ---
+templates.zip
+*.bak

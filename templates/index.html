@@ -9,6 +9,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
+        body { margin-left: 0; }
+
         .hero-section {
             background: linear-gradient(rgba(26, 54, 104, 0.9), rgba(26, 54, 104, 0.9)),
             url("{{ url_for('static', filename='img/una_logo.png') }}");
@@ -18,7 +20,7 @@
             display: flex;
             align-items: center;
             color: white;
-            padding-top: 80px;
+            padding: 80px 2rem 2rem 240px;
         }
 
         .feature-card {
@@ -98,7 +100,7 @@
         </div>
     </header>
 
-    <section id="info" class="py-5 bg-light">
+    <section id="info" class="py-5 bg-light" style="padding-left: 220px;">
         <div class="container py-5">
             <div class="text-center mb-5">
                 <h2 class="fw-bold text-dark">Servicios y Capacidades</h2>
@@ -139,7 +141,7 @@
         </div>
     </section>
 
-    <footer class="bg-dark text-white py-4 mt-auto">
+    <footer class="bg-dark text-white py-4 mt-auto" style="padding-left: 220px;">
         <div class="container text-center">
             <p class="mb-0 small">© 2026 Facultad Politécnica, UNA - Núcleo de Investigación y Desarrollo Tecnológico
                 (NIDTEC)</p>

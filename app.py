@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, jsonify
+import paramiko
+import re
+import io
+from fpdf import FPDF
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from datetime import datetime, timedelta
@@ -344,6 +348,149 @@ def arquitectura():
     is_admin = session.get('is_admin', False)
     return render_template('arquitectura.html', is_admin=is_admin)
 
+@app.route('/solicitud/<int:id>/pdf')
+def solicitud_pdf(id):
+    if 'user_id' not in session:
+        return redirect(url_for('index'))
+    
+    s = Solicitud.query.get_or_404(id)
+    
+    # Verificar que el usuario tenga acceso a esta solicitud
+    if not session.get('is_admin') and s.id_usuario_solicitante != session.get('user_id'):
+        flash('Acceso no autorizado', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=20)
+    
+    # Colores institucionales
+    azul = (26, 54, 104)
+    gris = (100, 116, 139)
+    negro = (30, 41, 59)
+    
+    # Encabezado
+    pdf.set_fill_color(*azul)
+    pdf.rect(0, 0, 210, 35, 'F')
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font('Helvetica', 'B', 18)
+    pdf.set_xy(10, 8)
+    pdf.cell(0, 10, 'FNOGUERA CLUSTER', align='C')
+    pdf.set_font('Helvetica', '', 9)
+    pdf.set_xy(10, 20)
+    pdf.cell(0, 6, 'Nucleo de Investigacion y Desarrollo Tecnologico - NIDTEC', align='C')
+    pdf.set_xy(10, 27)
+    pdf.cell(0, 6, 'Facultad Politecnica - Universidad Nacional de Asuncion', align='C')
+    
+    # Título del documento
+    pdf.ln(40)
+    pdf.set_text_color(*azul)
+    pdf.set_font('Helvetica', 'B', 14)
+    pdf.cell(0, 10, f'Detalle de Solicitud #{s.id_solicitud}', align='C')
+    pdf.ln(10)
+    pdf.set_draw_color(200, 200, 200)
+    pdf.set_line_width(0.3)
+    pdf.line(30, pdf.get_y(), 180, pdf.get_y())
+    pdf.ln(10)
+    
+    # Información principal
+    pdf.set_text_color(*negro)
+    pdf.set_font('Helvetica', 'B', 11)
+    
+    def put_row(label, value):
+        pdf.set_font('Helvetica', 'B', 10)
+        pdf.set_text_color(*gris)
+        pdf.cell(50, 7, label, border=0)
+        pdf.set_font('Helvetica', '', 10)
+        pdf.set_text_color(*negro)
+        pdf.cell(0, 7, str(value or 'N/A'), border=0)
+        pdf.ln(7)
+    
+    put_row('Solicitante:', s.nombre_solicitante or s.usuario.nombre_apellido)
+    put_row('Correo:', s.correo_solicitante or s.usuario.correo_electronico)
+    put_row('Fecha Solicitud:', s.fecha_solicitud.strftime('%d/%m/%Y') if s.fecha_solicitud else 'N/A')
+    put_row('Facultad:', s.facultad)
+    put_row('Carrera:', s.carrera)
+    put_row('Proyecto:', s.nombre_proyecto)
+    put_row('Asignatura/Modulo:', s.asignatura_modulo)
+    put_row('Tutor:', s.profesor_tutor)
+    
+    pdf.ln(5)
+    pdf.set_draw_color(200, 200, 200)
+    pdf.set_line_width(0.2)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(5)
+    
+    put_row('Periodo:', f"{s.fecha_inicio.strftime('%d/%m/%Y')} - {s.fecha_finalizacion_estimada.strftime('%d/%m/%Y')}")
+    put_row('Estado:', s.estado)
+    
+    pdf.ln(5)
+    pdf.set_draw_color(200, 200, 200)
+    pdf.set_line_width(0.2)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(5)
+    
+    # Software requerido
+    pdf.set_font('Helvetica', 'B', 10)
+    pdf.set_text_color(*gris)
+    pdf.cell(0, 7, 'Software Requerido:', border=0)
+    pdf.ln(7)
+    pdf.set_font('Helvetica', '', 10)
+    pdf.set_text_color(*negro)
+    pdf.multi_cell(0, 6, s.software_requerido or 'N/A')
+    pdf.ln(3)
+    
+    # Observaciones
+    pdf.set_font('Helvetica', 'B', 10)
+    pdf.set_text_color(*gris)
+    pdf.cell(0, 7, 'Observaciones:', border=0)
+    pdf.ln(7)
+    pdf.set_font('Helvetica', '', 10)
+    pdf.set_text_color(*negro)
+    pdf.multi_cell(0, 6, s.observaciones or 'Sin observaciones')
+    
+    # Información de autorización (si aceptada)
+    if s.estado == 'ACEPTADA':
+        pdf.ln(5)
+        pdf.set_draw_color(200, 200, 200)
+        pdf.set_line_width(0.2)
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(5)
+        pdf.set_text_color(*azul)
+        pdf.set_font('Helvetica', 'B', 12)
+        pdf.cell(0, 10, 'Informacion de Autorizacion', align='C')
+        pdf.ln(10)
+        
+        pdf.set_text_color(*negro)
+        pdf.set_font('Helvetica', '', 10)
+        put_row('Acceso a Nodos:', 'SI' if s.acceso_nodos else 'NO')
+        put_row('Maquina Virtual:', 'SI' if s.maquina_virtual else 'NO')
+        put_row('Autorizado por:', s.autorizado_por or 'Admin')
+        if s.detalles_mv:
+            pdf.set_font('Helvetica', 'B', 10)
+            pdf.set_text_color(*gris)
+            pdf.cell(0, 7, 'Detalles de Recursos:', border=0)
+            pdf.ln(7)
+            pdf.set_font('Helvetica', '', 10)
+            pdf.set_text_color(*negro)
+            pdf.multi_cell(0, 6, s.detalles_mv)
+    
+    # Footer
+    pdf.ln(10)
+    pdf.set_draw_color(200, 200, 200)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(3)
+    pdf.set_font('Helvetica', '', 7)
+    pdf.set_text_color(*gris)
+    pdf.cell(0, 5, f'Documento generado el {datetime.now().strftime("%d/%m/%Y %H:%M")} - FNOGUERA CLUSTER NIDTEC', align='C')
+    
+    # Generar respuesta
+    pdf_output = bytes(pdf.output())
+    response = make_response(pdf_output)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'attachment; filename=solicitud_{s.id_solicitud}.pdf'
+    return response
+
 @app.route('/proyectos')
 def proyectos():
     if 'user_id' not in session:
@@ -377,21 +524,79 @@ def recursos():
         return redirect(url_for('index'))
     
     is_admin = session.get('is_admin', False)
-    # Valores fijos de prueba
+    user = Usuario.query.get(session['user_id'])
+    ssh_config = get_user_ssh_config(user.correo_electronico) if user else None
+    
     recursos_data = {
         'nodos': [
-            {'nombre': 'nodo-01', 'cpu_uso': 45, 'ram_uso': 60, 'estado': 'Online'},
-            {'nombre': 'nodo-02', 'cpu_uso': 80, 'ram_uso': 85, 'estado': 'Online'},
-            {'nombre': 'nodo-03', 'cpu_uso': 10, 'ram_uso': 15, 'estado': 'Online'},
-            {'nombre': 'nodo-gpu-01', 'cpu_uso': 30, 'ram_uso': 40, 'estado': 'Online'}
+            {'nombre': 'nodo-01', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline'},
+            {'nombre': 'nodo-02', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline'},
+            {'nombre': 'nodo-03', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline'},
+            {'nombre': 'nodo-gpu-01', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline'}
         ],
-        'total_cpu': 64,
-        'uso_cpu': 38,
-        'total_ram': 256,
-        'uso_ram': 128,
-        'total_gpu': 4,
-        'uso_gpu': 1
+        'total_cpu': 0,
+        'uso_cpu': 0,
+        'total_ram': 0,
+        'uso_ram': 0,
+        'total_gpu': 0,
+        'uso_gpu': 0
     }
+    
+    # Intentar obtener datos reales via SSH
+    if ssh_config:
+        try:
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(
+                hostname=ssh_config['host'],
+                username=ssh_config['username'],
+                password=ssh_config['password'],
+                timeout=10
+            )
+            
+            # Obtener uso de CPU (carga promedio)
+            stdin, stdout, stderr = ssh.exec_command("top -bn1 | grep 'Cpu(s)' | awk '{print $2}'", timeout=10)
+            cpu_str = stdout.read().decode().strip()
+            uso_cpu_porcentaje = float(cpu_str) if cpu_str else 0
+            
+            # Obtener uso de RAM
+            stdin, stdout, stderr = ssh.exec_command("free -m | awk 'NR==2{print $3, $2}'", timeout=10)
+            ram_line = stdout.read().decode().strip().split()
+            uso_ram = int(ram_line[0]) if len(ram_line) > 0 else 0
+            total_ram = int(ram_line[1]) if len(ram_line) > 1 else 1
+            
+            # Obtener número de núcleos CPU
+            stdin, stdout, stderr = ssh.exec_command("nproc", timeout=10)
+            total_cpu = int(stdout.read().decode().strip() or 1)
+            
+            # Obtener uptime de nodos
+            stdin, stdout, stderr = ssh.exec_command("hostname", timeout=10)
+            hostname = stdout.read().decode().strip()
+            
+            ssh.close()
+            
+            # Asignar el uso real al primer nodo (o al nodo detectado)
+            for nodo in recursos_data['nodos']:
+                if nodo['nombre'] == f'nodo-{hostname[-2:]}' or nodo['nombre'] == hostname:
+                    nodo['cpu_uso'] = int(uso_cpu_porcentaje)
+                    nodo['ram_uso'] = int(uso_ram / max(total_ram, 1) * 100)
+                    nodo['estado'] = 'Online'
+                    break
+            else:
+                recursos_data['nodos'][0]['cpu_uso'] = int(uso_cpu_porcentaje)
+                recursos_data['nodos'][0]['ram_uso'] = int(uso_ram / max(total_ram, 1) * 100)
+                recursos_data['nodos'][0]['estado'] = 'Online'
+            
+            recursos_data['total_cpu'] = total_cpu
+            recursos_data['uso_cpu'] = int(total_cpu * uso_cpu_porcentaje / 100)
+            recursos_data['total_ram'] = total_ram
+            recursos_data['uso_ram'] = uso_ram
+            recursos_data['total_gpu'] = 4
+            recursos_data['uso_gpu'] = 1
+            
+        except Exception:
+            pass  # Si falla SSH, quedan los valores por defecto
+    
     return render_template('recursos.html', is_admin=is_admin, recursos=recursos_data)
 
 @app.route('/terminal')
@@ -399,7 +604,9 @@ def terminal():
     if 'user_id' not in session:
         return redirect(url_for('index'))
     is_admin = session.get('is_admin', False)
-    return render_template('terminal.html', is_admin=is_admin)
+    user = Usuario.query.get(session['user_id'])
+    ssh_config = get_user_ssh_config(user.correo_electronico) if user else None
+    return render_template('terminal.html', is_admin=is_admin, ssh_config=ssh_config)
 
 @app.route('/perfil')
 def perfil():
@@ -457,10 +664,19 @@ def promover_usuario(id):
         return redirect(url_for('index'))
     
     user = Usuario.query.get_or_404(id)
+    if user.es_administrador:
+        flash(f'{user.nombre_apellido} ya es administrador', 'warning')
+        return redirect(url_for('lista_usuarios'))
+    
     user.es_administrador = True
     db.session.commit()
-    flash(f'Usuario {user.nombre_apellido} promovido a administrador', 'success')
-    return redirect(request.referrer or url_for('dashboard'))
+    
+    # Si el usuario promovido es el mismo de la sesión, actualizar la sesión
+    if user.id_usuario == session.get('user_id'):
+        session['is_admin'] = True
+    
+    flash(f'✓ {user.nombre_apellido} ahora es administrador', 'success')
+    return redirect(url_for('lista_usuarios'))
 
 @app.route('/degradar/<int:id>')
 def degradar_usuario(id):
@@ -472,12 +688,21 @@ def degradar_usuario(id):
     if id == session['user_id']:
         flash('No puedes quitarte el rol de administrador a ti mismo', 'warning')
         return redirect(url_for('lista_usuarios'))
-
+    
     user = Usuario.query.get_or_404(id)
+    if not user.es_administrador:
+        flash(f'{user.nombre_apellido} no es administrador', 'warning')
+        return redirect(url_for('lista_usuarios'))
+    
     user.es_administrador = False
     db.session.commit()
-    flash(f'Rol de administrador removido para {user.nombre_apellido}', 'info')
-    return redirect(request.referrer or url_for('dashboard'))
+    
+    # Si el usuario degradado es el mismo de la sesión, actualizar sesión
+    if user.id_usuario == session.get('user_id'):
+        session['is_admin'] = False
+    
+    flash(f'✓ Rol de administrador removido para {user.nombre_apellido}', 'info')
+    return redirect(url_for('lista_usuarios'))
 
 @app.route('/cambiar_password', methods=['POST'])
 def cambiar_password():
@@ -497,6 +722,69 @@ def cambiar_password():
         flash('La contraseña actual es incorrecta', 'danger')
         
     return redirect(url_for('perfil'))
+
+# --- SSH Credentials ---
+SSH_CREDENTIALS = {
+    'fernandogustavonogueratorres@fpuna.edu.py': {
+        'host': '192.168.1.9',
+        'username': 'fnoguera',
+        'password': '.fnoguera2026.'
+    }
+}
+
+def get_user_ssh_config(user_email):
+    return SSH_CREDENTIALS.get(user_email)
+
+@app.route('/terminal/exec', methods=['POST'])
+def terminal_exec():
+    if 'user_id' not in session:
+        return jsonify({'error': 'No autorizado'}), 401
+    
+    user = Usuario.query.get(session['user_id'])
+    if not user:
+        return jsonify({'error': 'Usuario no encontrado'}), 404
+    
+    ssh_config = get_user_ssh_config(user.correo_electronico)
+    if not ssh_config:
+        return jsonify({'error': 'No tienes acceso SSH asignado'}), 403
+    
+    command = request.json.get('command', '')
+    if not command.strip():
+        return jsonify({'output': ''})
+    
+    # Comandos peligrosos bloqueados
+    blocked = ['rm -rf', 'mkfs', 'dd if=', 'shutdown', 'reboot', 'init 0', 'init 6']
+    if any(cmd in command.lower() for cmd in blocked):
+        return jsonify({'output': 'Comando bloqueado por seguridad\n'})
+    
+    try:
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(
+            hostname=ssh_config['host'],
+            username=ssh_config['username'],
+            password=ssh_config['password'],
+            timeout=10
+        )
+        
+        stdin, stdout, stderr = ssh.exec_command(command, timeout=30)
+        output = stdout.read().decode('utf-8', errors='replace')
+        error = stderr.read().decode('utf-8', errors='replace')
+        ssh.close()
+        
+        if error:
+            output += error
+        
+        if not output.strip():
+            output = 'Comando ejecutado correctamente (sin salida)\n'
+        
+        return jsonify({'output': output})
+    except paramiko.AuthenticationException:
+        return jsonify({'output': 'Error: Autenticación SSH fallida\n'})
+    except paramiko.SSHException as e:
+        return jsonify({'output': f'Error SSH: {str(e)}\n'})
+    except Exception as e:
+        return jsonify({'output': f'Error de conexión: {str(e)}\n'})
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -529,10 +817,22 @@ def actualizar_foto():
         
     return redirect(url_for('perfil'))
 
+@app.after_request
+def no_cache(response):
+    if 'user_id' in session:
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    return response
+
 @app.route('/logout')
 def logout():
+    resp = make_response(redirect(url_for('index')))
+    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    resp.headers['Pragma'] = 'no-cache'
+    resp.headers['Expires'] = '0'
     session.clear()
-    return redirect(url_for('index'))
+    return resp
 
 @app.route('/notificaciones/limpiar')
 def limpiar_notificaciones():

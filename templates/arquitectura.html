@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cluster NIDTEC - Arquitectura</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .arch-card {
+            height: 100%;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .arch-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .arch-icon {
+            font-size: 2.5rem;
+            color: var(--bs-primary);
+            margin-bottom: 1rem;
+        }
+        .flow-step {
+            position: relative;
+            padding-left: 2.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .flow-step::before {
+            content: '';
+            position: absolute;
+            left: 0.75rem;
+            top: 2rem;
+            bottom: -1.5rem;
+            width: 2px;
+            background-color: rgba(var(--bs-primary-rgb), 0.3);
+        }
+        .flow-step:last-child::before {
+            display: none;
+        }
+        .flow-icon-container {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 1.5rem;
+            height: 1.5rem;
+            background-color: var(--bs-primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.75rem;
+            z-index: 1;
+        }
+        .db-table th {
+            background-color: rgba(var(--bs-primary-rgb), 0.1);
+            color: var(--bs-primary);
+            font-weight: 600;
+        }
+        .integration-item {
+            border-left: 4px solid var(--bs-primary);
+            padding-left: 1rem;
+            margin-bottom: 1rem;
+            background: rgba(var(--bs-primary-rgb), 0.05);
+            padding: 1rem;
+            border-radius: 0 0.5rem 0.5rem 0;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar-institutional">
+        <div class="navbar-brand-group">
+            <h4 class="logo-text">CLUSTER NIDTEC</h4>
+        </div>
+        
+        <div class="navbar-nav-group">
+            <a href="/dashboard" class="navbar-link">
+                <i class="fas fa-chart-line"></i> Resumen
+            </a>
+            <a href="/solicitud" class="navbar-link">
+                <i class="fas fa-file-alt"></i> Solicitud
+            </a>
+            <a href="/arquitectura" class="navbar-link active">
+                <i class="fas fa-network-wired"></i> Arquitectura
+            </a>
+            <a href="/perfil" class="navbar-link">
+                <i class="fas fa-user"></i> Perfil
+            </a>
+            {% if is_admin %}
+            <a href="/usuarios" class="navbar-link">
+                <i class="fas fa-users"></i> Usuarios
+            </a>
+            {% endif %}
+        </div>
+
+        <div class="mt-auto">
+            <a href="/logout" class="navbar-link logout">
+                <i class="fas fa-sign-out-alt"></i> Salir
+            </a>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <header class="d-flex justify-content-between align-items-center mb-5">
+            <div>
+                <h2 class="fw-bold">Arquitectura del Sistema</h2>
+                <p class="text-muted">Diseño estructural e integración de componentes (Valores Estáticos)</p>
+            </div>
+            <div class="d-flex align-items-center">
+                <div class="glass-card py-2 px-3 d-flex align-items-center">
+                    <div class="bg-success rounded-circle me-2 status-indicator"></div>
+                    <span class="small">Diseño Activo</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 1. Arquitectura del Sistema -->
+        <section class="mb-5">
+            <h4 class="fw-bold text-dark mb-4 border-bottom pb-2"><i class="fas fa-layer-group text-primary me-2"></i>1. Arquitectura del Sistema</h4>
+            <p class="text-muted mb-4">El diseño se basa en un modelo de n-capas donde el Sistema Web actúa como intermediario (middleware) entre el usuario final y el clúster de cómputo.</p>
+            
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="glass-card arch-card p-4">
+                        <i class="fas fa-globe arch-icon"></i>
+                        <h5 class="fw-bold text-dark">A. Capa de Aplicación</h5>
+                        <h6 class="text-muted small mb-3">Sistema Web</h6>
+                        <ul class="list-unstyled text-sm text-dark">
+                            <li class="mb-2"><i class="fas fa-desktop text-primary me-2"></i><strong>Frontend:</strong> Interfaz para enviar trabajos (jobs), monitorear el clúster y ver resultados.</li>
+                            <li class="mb-2"><i class="fas fa-server text-primary me-2"></i><strong>Backend:</strong> Lógica para validación, gestión de proyectos y comunicación vía APIs o SSH.</li>
+                            <li><i class="fas fa-database text-primary me-2"></i><strong>Base de Datos Web (PostgreSQL):</strong> Almacena perfiles, roles, metadatos, historial y logs.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="glass-card arch-card p-4">
+                        <i class="fas fa-tasks arch-icon text-success"></i>
+                        <h5 class="fw-bold text-dark">B. Capa de Gestión</h5>
+                        <h6 class="text-muted small mb-3">Slurm Orchestrator</h6>
+                        <ul class="list-unstyled text-sm text-dark">
+                            <li class="mb-2"><i class="fas fa-brain text-success me-2"></i><strong>Slurmctld (Controller):</strong> El cerebro que gestiona la cola de trabajos.</li>
+                            <li class="mb-2"><i class="fas fa-exchange-alt text-success me-2"></i><strong>Slurmdbd (Daemon):</strong> Interfaz entre Slurm y su base de datos para contabilidad.</li>
+                            <li><i class="fas fa-database text-success me-2"></i><strong>Base de Datos Slurm (MySQL):</strong> Datos de contabilidad, límites de usuarios y tiempos.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="glass-card arch-card p-4">
+                        <i class="fas fa-microchip arch-icon text-danger"></i>
+                        <h5 class="fw-bold text-dark">C. Capa de Infraestructura</h5>
+                        <h6 class="text-muted small mb-3">Hardware (HCP)</h6>
+                        <ul class="list-unstyled text-sm text-dark">
+                            <li class="mb-2"><i class="fas fa-thermometer-half text-danger me-2"></i><strong>Sistema HCP:</strong> Monitoreo de bajo nivel (temperatura, energía, estado físico).</li>
+                            <li><i class="fas fa-server text-danger me-2"></i><strong>Nodos de Cómputo:</strong> Los servidores físicos donde se ejecutan las tareas.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="row g-5 mb-5">
+            <!-- 2. Diagrama de Flujo -->
+            <div class="col-lg-5">
+                <h4 class="fw-bold text-dark mb-4 border-bottom pb-2"><i class="fas fa-project-diagram text-primary me-2"></i>2. Flujo de Datos</h4>
+                <div class="glass-card p-4">
+                    <div class="flow-step">
+                        <div class="flow-icon-container"><i class="fas fa-file-code"></i></div>
+                        <h6 class="fw-bold mb-1">1. Solicitud</h6>
+                        <p class="text-muted small mb-0">El usuario envía un script de cálculo desde el Sistema Web.</p>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-icon-container bg-info"><i class="fas fa-save"></i></div>
+                        <h6 class="fw-bold mb-1">2. Registro</h6>
+                        <p class="text-muted small mb-0">El Backend guarda la metadata en la Base de Datos Web.</p>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-icon-container bg-warning"><i class="fas fa-paper-plane"></i></div>
+                        <h6 class="fw-bold mb-1">3. Envío</h6>
+                        <p class="text-muted small mb-0">El Backend se comunica con el Slurmctld para encolar el trabajo.</p>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-icon-container bg-success"><i class="fas fa-cogs"></i></div>
+                        <h6 class="fw-bold mb-1">4. Ejecución</h6>
+                        <p class="text-muted small mb-0">Slurm asigna el trabajo a los Nodos basándose en disponibilidad.</p>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-icon-container bg-danger"><i class="fas fa-heartbeat"></i></div>
+                        <h6 class="fw-bold mb-1">5. Monitoreo HCP</h6>
+                        <p class="text-muted small mb-0">Envía alertas al Sistema Web si un nodo físico presenta fallas.</p>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-icon-container bg-secondary"><i class="fas fa-file-invoice-dollar"></i></div>
+                        <h6 class="fw-bold mb-1">6. Contabilidad</h6>
+                        <p class="text-muted small mb-0">Slurmdbd actualiza el consumo al terminar en BD Slurm.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Modelo Entidad-Relación -->
+            <div class="col-lg-7">
+                <h4 class="fw-bold text-dark mb-4 border-bottom pb-2"><i class="fas fa-table text-primary me-2"></i>3. Modelo de Entidad-Relación</h4>
+                
+                <h6 class="fw-bold text-primary mb-3">Base de Datos Web <span class="text-muted small fw-normal">(Gestión Académica)</span></h6>
+                <div class="glass-card p-0 overflow-hidden mb-4">
+                    <table class="table table-hover mb-0 db-table text-sm">
+                        <thead>
+                            <tr>
+                                <th>Tabla</th>
+                                <th>Descripción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="fw-semibold">Usuarios</td>
+                                <td>ID, Nombre, Rol (Admin/Investigador), Credenciales.</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">Proyectos</td>
+                                <td>ID, Nombre, Descripción, Presupuesto de horas.</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">Solicitudes_Jobs</td>
+                                <td>ID, ID_Usuario, ID_Proyecto, Script_Path, Estado (En espera, Ejecutando, Fallido).</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h6 class="fw-bold text-success mb-3">Base de Datos Slurm <span class="text-muted small fw-normal">(Cómputo)</span></h6>
+                <div class="glass-card p-0 overflow-hidden">
+                    <table class="table table-hover mb-0 db-table text-sm">
+                        <thead class="bg-success bg-opacity-10">
+                            <tr>
+                                <th class="text-success">Tabla</th>
+                                <th class="text-success">Descripción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="fw-semibold">Assoc_Table</td>
+                                <td>Relación entre usuarios, cuentas de Slurm y particiones.</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">Job_Table</td>
+                                <td>Registros de tiempo de inicio, fin, nodos utilizados y memoria consumida.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Consideraciones -->
+        <section>
+            <h4 class="fw-bold text-dark mb-4 border-bottom pb-2"><i class="fas fa-clipboard-check text-primary me-2"></i>4. Consideraciones de Integración</h4>
+            <div class="glass-card p-4">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="integration-item h-100">
+                            <h6 class="fw-bold text-primary"><i class="fas fa-sync-alt me-2"></i>Sincronización</h6>
+                            <p class="text-muted small mb-0">Es vital que los usuarios creados en el Sistema Web tengan una correspondencia en Slurm (vía comandos <code>sacctmgr</code>) para que los permisos sean consistentes.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="integration-item h-100 border-warning bg-warning bg-opacity-10">
+                            <h6 class="fw-bold text-warning"><i class="fas fa-shield-alt me-2"></i>Seguridad</h6>
+                            <p class="text-muted small mb-0">El Sistema Web no debe ejecutar comandos como root. Se recomienda el uso de un Nodo de Login dedicado o una API REST que actúe como puente seguro.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="integration-item h-100 border-success bg-success bg-opacity-10">
+                            <h6 class="fw-bold text-success"><i class="fas fa-robot me-2"></i>Automatización</h6>
+                            <p class="text-muted small mb-0">PM2 en el backend asegura que el puente Web-Slurm esté siempre activo; el HCP garantiza que no se envíen trabajos a hardware degradado.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

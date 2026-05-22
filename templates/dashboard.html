@@ -41,14 +41,14 @@
                 <i class="fas fa-users"></i> Usuarios
             </a>
             {% endif %}
-            
-            
-            
-            <button class="btn btn-link navbar-link border-0" onclick="toggleTheme()" title="Cambiar Tema">
+        </div>
+
+        <div class="mt-auto">
+            <button class="btn btn-link navbar-link border-0 w-100" onclick="toggleTheme()" title="Cambiar Tema">
                 <i class="fas fa-moon theme-toggle-icon"></i>
             </button>
-            <div class="dropdown d-inline-block">
-                <button class="btn btn-link navbar-link position-relative border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <div class="dropdown dropup">
+                <button class="btn btn-link navbar-link position-relative border-0 w-100" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                     <i class="fas fa-bell"></i>
                     {% if unread_count > 0 %}
                     <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notif-badge">
@@ -419,6 +419,9 @@
                         </div>
                     </div>
                     <div class="modal-footer border-0">
+                        <a href="{{ url_for('solicitud_pdf', id=s.id_solicitud) }}" class="btn btn-primary px-4" target="_blank">
+                            <i class="fas fa-file-pdf me-1"></i> Descargar PDF
+                        </a>
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
                     </div>
                 </div>

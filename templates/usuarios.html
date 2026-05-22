@@ -100,14 +100,14 @@
                 <i class="fas fa-users"></i> Usuarios
             </a>
             {% endif %}
-            
-            
-            
-            <button class="btn btn-link navbar-link border-0" onclick="toggleTheme()" title="Cambiar Tema">
+        </div>
+
+        <div class="mt-auto">
+            <button class="btn btn-link navbar-link border-0 w-100" onclick="toggleTheme()" title="Cambiar Tema">
                 <i class="fas fa-moon theme-toggle-icon"></i>
             </button>
-            <div class="dropdown d-inline-block">
-                <button class="btn btn-link navbar-link position-relative border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <div class="dropdown dropup">
+                <button class="btn btn-link navbar-link position-relative border-0 w-100" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                     <i class="fas fa-bell"></i>
                     {% if unread_count > 0 %}
                     <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notif-badge">
@@ -274,7 +274,7 @@
                                         <button class="btn btn-danger-soft btn-sm px-3"
                                                 data-bs-toggle="modal" 
                                                 data-bs-target="#modalDegradar{{ u.id_usuario }}">
-                                            <i class="fas fa-arrow-down me-1"></i> Degradado
+                                            <i class="fas fa-arrow-down me-1"></i> Degradar
                                         </button>
                                         {% else %}
                                         <span class="badge bg-white bg-opacity-10 text-white py-2 px-3 rounded-pill border border-white border-opacity-10">
@@ -288,58 +288,61 @@
                                 </div>
                             </td>
                         </tr>
-
-                        <!-- Modal Promover -->
-                        <div class="modal fade" id="modalPromover{{ u.id_usuario }}" tabindex="-1" aria-hidden="true">
-                            <div class="modal-dialog modal-dialog-centered">
-                                <div class="modal-content glass-card border-0">
-                                    <div class="modal-header border-0">
-                                        <h5 class="modal-title fw-bold">Promover a Administrador</h5>
-                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                                    </div>
-                                    <div class="modal-body text-center py-4">
-                                        <div class="bg-success bg-opacity-10 p-4 rounded-circle d-inline-block mb-3">
-                                            <i class="fas fa-crown text-success fa-3x"></i>
-                                        </div>
-                                        <p>¿Está seguro de que desea otorgar privilegios de administrador a <strong>{{ u.nombre_apellido }}</strong>?</p>
-                                        <p class="text-muted small">Este usuario podrá gestionar solicitudes y otros usuarios.</p>
-                                    </div>
-                                    <div class="modal-footer border-0">
-                                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                        <a href="{{ url_for('promover_usuario', id=u.id_usuario) }}" class="btn btn-success px-4">Confirmar Promoción</a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Modal Degradado -->
-                        <div class="modal fade" id="modalDegradar{{ u.id_usuario }}" tabindex="-1" aria-hidden="true">
-                            <div class="modal-dialog modal-dialog-centered">
-                                <div class="modal-content glass-card border-0">
-                                    <div class="modal-header border-0">
-                                        <h5 class="modal-title fw-bold">Remover Privilegios</h5>
-                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                                    </div>
-                                    <div class="modal-body text-center py-4">
-                                        <div class="bg-danger bg-opacity-10 p-4 rounded-circle d-inline-block mb-3">
-                                            <i class="fas fa-user-minus text-danger fa-3x"></i>
-                                        </div>
-                                        <p>¿Revocar el rol de administrador para <strong>{{ u.nombre_apellido }}</strong>?</p>
-                                        <p class="text-muted small">El usuario volverá al rol de Investigador Estándar.</p>
-                                    </div>
-                                    <div class="modal-footer border-0">
-                                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                        <a href="{{ url_for('degradar_usuario', id=u.id_usuario) }}" class="btn btn-danger px-4">Confirmar Revocación</a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
         </div>
     </main>
+
+    <!-- Modales fuera de la tabla -->
+    {% for u in usuarios %}
+    <!-- Modal Promover -->
+    <div class="modal fade" id="modalPromover{{ u.id_usuario }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content glass-card border-0">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold">Promover a Administrador</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center py-4">
+                    <div class="bg-success bg-opacity-10 p-4 rounded-circle d-inline-block mb-3">
+                        <i class="fas fa-crown text-success fa-3x"></i>
+                    </div>
+                    <p>¿Está seguro de que desea otorgar privilegios de administrador a <strong>{{ u.nombre_apellido }}</strong>?</p>
+                    <p class="text-muted small">Este usuario podrá gestionar solicitudes y otros usuarios.</p>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <a href="{{ url_for('promover_usuario', id=u.id_usuario) }}" class="btn btn-success px-4">Confirmar Promoción</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Degradar -->
+    <div class="modal fade" id="modalDegradar{{ u.id_usuario }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content glass-card border-0">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold">Remover Privilegios</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center py-4">
+                    <div class="bg-danger bg-opacity-10 p-4 rounded-circle d-inline-block mb-3">
+                        <i class="fas fa-user-minus text-danger fa-3x"></i>
+                    </div>
+                    <p>¿Revocar el rol de administrador para <strong>{{ u.nombre_apellido }}</strong>?</p>
+                    <p class="text-muted small">El usuario volverá al rol de Investigador Estándar.</p>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <a href="{{ url_for('degradar_usuario', id=u.id_usuario) }}" class="btn btn-danger px-4">Confirmar Revocación</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>

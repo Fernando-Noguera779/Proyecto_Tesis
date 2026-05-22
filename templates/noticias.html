@@ -41,13 +41,14 @@
                 <i class="fas fa-users"></i> Usuarios
             </a>
             {% endif %}
-            
-            <button class="btn btn-link navbar-link border-0" onclick="toggleTheme()" title="Cambiar Tema">
+        </div>
+
+        <div class="mt-auto">
+            <button class="btn btn-link navbar-link border-0 w-100" onclick="toggleTheme()" title="Cambiar Tema">
                 <i class="fas fa-moon theme-toggle-icon"></i>
             </button>
-            
-            <div class="dropdown d-inline-block">
-                <button class="btn btn-link navbar-link position-relative border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <div class="dropdown dropup">
+                <button class="btn btn-link navbar-link position-relative border-0 w-100" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                     <i class="fas fa-bell"></i>
                     {% if unread_count > 0 %}
                     <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notif-badge">
@@ -60,6 +61,32 @@
                         <h6 class="mb-0 fw-bold text-white">Notificaciones</h6>
                         <a href="/notificaciones/limpiar" class="x-small text-primary text-decoration-none">Marcar como leídas</a>
                     </div>
+                    <div class="notif-list">
+                        {% for n in unread_notifs %}
+                        <div class="p-3 border-bottom border-secondary border-opacity-10 notif-item">
+                            <div class="d-flex align-items-start">
+                                <div class="bg-primary bg-opacity-10 p-2 rounded-circle me-3">
+                                    <i class="fas {% if n.tipo == 'SOLICITUD' %}fa-file-invoice{% else %}fa-info-circle{% endif %} text-primary small"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <p class="mb-1 small text-white notif-message">{{ n.mensaje }}</p>
+                                    <span class="x-small text-muted">{{ n.fecha.strftime('%d/%m %H:%M') }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="p-4 text-center">
+                            <i class="fas fa-bell-slash text-muted mb-2 d-block fa-lg"></i>
+                            <p class="text-muted small mb-0">No hay notificaciones nuevas</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <a href="/logout" class="navbar-link logout">
+                <i class="fas fa-sign-out-alt"></i> Salir
+            </a>
+        </div>
                     <div class="notif-list">
                         {% for n in unread_notifs %}
                         <div class="p-3 border-bottom border-secondary border-opacity-10 notif-item">

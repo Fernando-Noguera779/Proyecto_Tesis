@@ -71,8 +71,10 @@
 </head>
 
 <body>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <nav class="navbar-institutional">
         <div class="navbar-brand-group">
+            <button class="navbar-toggle-btn" id="sidebarToggle" aria-label="Menú">☰</button>
             <h4 class="logo-text">FNOGUERA CLUSTER</h4>
         </div>
 
@@ -88,6 +90,9 @@
             </a>
             <a href="/recursos" class="navbar-link">
                 <i class="fas fa-server"></i> Recursos
+            </a>
+            <a href="/analisis-predictivo" class="navbar-link">
+                <i class="fas fa-chart-bar"></i> Análisis
             </a>
             <a href="/solicitud" class="navbar-link">
                 <i class="fas fa-file-alt"></i> Solicitud
@@ -362,6 +367,7 @@
             });
         });
     </script>
+    <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
 </body>
 
 </html>

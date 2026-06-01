@@ -3,6 +3,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 import paramiko
 import re
 import io
+import math
 from fpdf import FPDF
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
@@ -18,7 +19,7 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Configuración de base de datos (PostgreSQL)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:123@localhost:5433/CLUSTER_NIDTEC' # Actualizado para túnel SSH fnoguera@kepri
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:123@localhost:5432/CLUSTER_NIDTEC'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # FUERZA LA CODIFICACIÓN A UTF8 PARA EVITAR EL UNICODEDECODEERROR
@@ -598,6 +599,170 @@ def recursos():
             pass  # Si falla SSH, quedan los valores por defecto
     
     return render_template('recursos.html', is_admin=is_admin, recursos=recursos_data)
+
+@app.route('/analisis-predictivo', methods=['GET', 'POST'])
+def analisis_predictivo():
+    if 'user_id' not in session:
+        return redirect(url_for('index'))
+
+    is_admin = session.get('is_admin', False)
+    user = Usuario.query.get(session['user_id'])
+    ssh_config = get_user_ssh_config(user.correo_electronico) if user else None
+
+    recursos_data = {
+        'nodos': [
+            {'nombre': 'nodo-01', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline'},
+            {'nombre': 'nodo-02', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline'},
+            {'nombre': 'nodo-03', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline'},
+            {'nombre': 'nodo-gpu-01', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline'}
+        ],
+        'total_cpu': 64, 'uso_cpu': 32,
+        'total_ram': 128, 'uso_ram': 64,
+        'total_gpu': 4, 'uso_gpu': 1
+    }
+
+    if ssh_config:
+        try:
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(
+                hostname=ssh_config['host'],
+                username=ssh_config['username'],
+                password=ssh_config['password'],
+                timeout=10
+            )
+            stdin, stdout, stderr = ssh.exec_command("top -bn1 | grep 'Cpu(s)' | awk '{print $2}'", timeout=10)
+            cpu_str = stdout.read().decode().strip()
+            uso_cpu_porcentaje = float(cpu_str) if cpu_str else 0
+            stdin, stdout, stderr = ssh.exec_command("free -m | awk 'NR==2{print $3, $2}'", timeout=10)
+            ram_line = stdout.read().decode().strip().split()
+            uso_ram = int(ram_line[0]) if len(ram_line) > 0 else 0
+            total_ram = int(ram_line[1]) if len(ram_line) > 1 else 1
+            stdin, stdout, stderr = ssh.exec_command("nproc", timeout=10)
+            total_cpu = int(stdout.read().decode().strip() or 1)
+            stdin, stdout, stderr = ssh.exec_command("hostname", timeout=10)
+            hostname = stdout.read().decode().strip()
+            ssh.close()
+
+            for nodo in recursos_data['nodos']:
+                if nodo['nombre'] == f'nodo-{hostname[-2:]}' or nodo['nombre'] == hostname:
+                    nodo['cpu_uso'] = int(uso_cpu_porcentaje)
+                    nodo['ram_uso'] = int(uso_ram / max(total_ram, 1) * 100)
+                    nodo['estado'] = 'Online'
+                    break
+            else:
+                recursos_data['nodos'][0]['cpu_uso'] = int(uso_cpu_porcentaje)
+                recursos_data['nodos'][0]['ram_uso'] = int(uso_ram / max(total_ram, 1) * 100)
+                recursos_data['nodos'][0]['estado'] = 'Online'
+
+            recursos_data['total_cpu'] = total_cpu
+            recursos_data['uso_cpu'] = int(total_cpu * uso_cpu_porcentaje / 100)
+            recursos_data['total_ram'] = total_ram
+            recursos_data['uso_ram'] = uso_ram
+            recursos_data['total_gpu'] = 4
+            recursos_data['uso_gpu'] = 1
+        except Exception:
+            pass
+
+    tasa = request.form.get('tasa', 5, type=float)
+    meses = request.form.get('meses', 12, type=int)
+    puertos = request.form.get('puertos', 24, type=int)
+
+    cpu_total = recursos_data['total_cpu']
+    cpu_uso = recursos_data['uso_cpu']
+    ram_total = recursos_data['total_ram']
+    ram_uso = recursos_data['uso_ram']
+    gpu_total = recursos_data['total_gpu']
+    gpu_uso = recursos_data['uso_gpu']
+
+    cpu_pct = (cpu_uso / cpu_total * 100) if cpu_total else 0
+    ram_pct = (ram_uso / ram_total * 100) if ram_total else 0
+    gpu_pct = (gpu_uso / gpu_total * 100) if gpu_total else 0
+
+    growth_factor = 1 + (tasa / 100)
+    proyecciones = []
+    for mes in range(1, meses + 1):
+        factor = growth_factor ** mes
+        cpu_proj = cpu_uso * factor
+        ram_proj = ram_uso * factor
+        gpu_proj = gpu_uso * factor
+        proyecciones.append({
+            'mes': mes,
+            'fecha': (datetime.now().replace(day=1) + timedelta(days=30 * mes)).strftime('%Y-%m'),
+            'cpu_uso': round(cpu_proj, 1),
+            'cpu_pct': min(round(cpu_proj / cpu_total * 100, 1) if cpu_total else 0, 100),
+            'ram_uso': round(ram_proj, 1),
+            'ram_pct': min(round(ram_proj / ram_total * 100, 1) if ram_total else 0, 100),
+            'gpu_uso': round(gpu_proj, 1),
+            'gpu_pct': min(round(gpu_proj / gpu_total * 100, 1) if gpu_total else 0, 100),
+        })
+
+    mes_agotar_cpu = next((p['mes'] for p in proyecciones if p['cpu_pct'] >= 100), None)
+    mes_agotar_ram = next((p['mes'] for p in proyecciones if p['ram_pct'] >= 100), None)
+    mes_agotar_gpu = next((p['mes'] for p in proyecciones if p['gpu_pct'] >= 100), None)
+
+    num_nodos = len(recursos_data['nodos'])
+    cpu_por_nodo = max(1, cpu_total // max(num_nodos, 1))
+    ram_por_nodo = max(1, ram_total // max(num_nodos, 1))
+    num_nodos_gpu = max(1, sum(1 for n in recursos_data['nodos'] if 'gpu' in n['nombre']))
+    gpu_por_nodo = max(1, gpu_total // num_nodos_gpu) if gpu_total > 0 else 0
+
+    factor_12m = growth_factor ** min(meses, 12)
+    cpu_deficit = max(0, cpu_uso * factor_12m - cpu_total)
+    ram_deficit = max(0, ram_uso * factor_12m - ram_total)
+    gpu_deficit = max(0, gpu_uso * factor_12m - gpu_total)
+
+    nodos_cpu = math.ceil(cpu_deficit / cpu_por_nodo) if cpu_por_nodo > 0 else 0
+    nodos_ram = math.ceil(ram_deficit / ram_por_nodo) if ram_por_nodo > 0 else 0
+    nodos_gpu = math.ceil(gpu_deficit / gpu_por_nodo) if gpu_por_nodo > 0 else 0
+    total_nuevos = max(nodos_cpu, nodos_ram, nodos_gpu)
+    total_final = num_nodos + total_nuevos
+
+    necesita_switch = total_final > puertos
+    switches_req = max(1, math.ceil(total_final / puertos))
+    puertos_libres = switches_req * puertos - total_final
+
+    prediccion = {
+        'proyecciones': proyecciones,
+        'agotamiento': {
+            'cpu': mes_agotar_cpu,
+            'ram': mes_agotar_ram,
+            'gpu': mes_agotar_gpu,
+        },
+        'equipos': {
+            'cpu_por_nodo': cpu_por_nodo,
+            'ram_por_nodo': ram_por_nodo,
+            'gpu_por_nodo': gpu_por_nodo,
+            'nodos_cpu': nodos_cpu,
+            'nodos_ram': nodos_ram,
+            'nodos_gpu': nodos_gpu,
+            'total_nuevos': total_nuevos,
+        },
+        'switch': {
+            'puertos_switch': puertos,
+            'nodos_actuales': num_nodos,
+            'total_final': total_final,
+            'necesita_switch': necesita_switch,
+            'switches_necesarios': switches_req,
+            'puertos_libres': puertos_libres,
+        },
+        'uso_actual': {
+            'cpu_pct': round(cpu_pct, 1),
+            'ram_pct': round(ram_pct, 1),
+            'gpu_pct': round(gpu_pct, 1),
+            'cpu_uso': cpu_uso,
+            'cpu_total': cpu_total,
+            'ram_uso': ram_uso,
+            'ram_total': ram_total,
+            'gpu_uso': gpu_uso,
+            'gpu_total': gpu_total,
+        },
+        'tasa': tasa,
+        'meses': meses,
+    }
+
+    return render_template('analisis_predictivo.html', is_admin=is_admin, prediccion=prediccion)
+
 
 @app.route('/terminal')
 def terminal():

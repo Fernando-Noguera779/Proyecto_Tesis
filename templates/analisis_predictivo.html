@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FNOGUERA CLUSTER - Análisis Predictivo</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='js/darkmode.js') }}"></script>
+    <style>
+        .pred-card {
+            border-left: 4px solid var(--primary-color);
+            transition: all 0.3s ease;
+        }
+        .pred-card.cpu { border-left-color: #3b82f6; }
+        .pred-card.ram { border-left-color: #10b981; }
+        .pred-card.gpu { border-left-color: #f59e0b; }
+        .pred-card.switch { border-left-color: #8b5cf6; }
+        .pred-card.danger { border-left-color: #ef4444; }
+        .pred-card.success { border-left-color: #10b981; }
+        .exhaustion-badge {
+            font-size: 0.85rem;
+            padding: 0.35rem 0.75rem;
+        }
+        .config-input {
+            max-width: 120px;
+        }
+        .pred-table th {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .chart-container {
+            position: relative;
+            height: 350px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <nav class="navbar-institutional">
+        <div class="navbar-brand-group">
+            <button class="navbar-toggle-btn" id="sidebarToggle" aria-label="Menú">☰</button>
+            <h4 class="logo-text">FNOGUERA CLUSTER</h4>
+        </div>
+
+        <div class="navbar-nav-group">
+            <a href="/dashboard" class="navbar-link">
+                <i class="fas fa-chart-line"></i> Resumen
+            </a>
+            <a href="/noticias" class="navbar-link">
+                <i class="fas fa-newspaper"></i> Noticias
+            </a>
+            <a href="/proyectos" class="navbar-link">
+                <i class="fas fa-project-diagram"></i> Proyectos
+            </a>
+            <a href="/recursos" class="navbar-link">
+                <i class="fas fa-server"></i> Recursos
+            </a>
+            <a href="/analisis-predictivo" class="navbar-link active">
+                <i class="fas fa-chart-bar"></i> Análisis
+            </a>
+            <a href="/solicitud" class="navbar-link">
+                <i class="fas fa-file-alt"></i> Solicitud
+            </a>
+            <a href="/perfil" class="navbar-link">
+                <i class="fas fa-user"></i> Perfil
+            </a>
+            {% if is_admin %}
+            <a href="/usuarios" class="navbar-link">
+                <i class="fas fa-users"></i> Usuarios
+            </a>
+            {% endif %}
+        </div>
+
+        <div class="mt-auto">
+            <button class="btn btn-link navbar-link border-0 w-100" onclick="toggleTheme()" title="Cambiar Tema">
+                <i class="fas fa-moon theme-toggle-icon"></i>
+            </button>
+            <div class="dropdown dropup">
+                <button class="btn btn-link navbar-link position-relative border-0 w-100" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-bell"></i>
+                    {% if unread_count > 0 %}
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notif-badge">
+                        {{ unread_count }}
+                    </span>
+                    {% endif %}
+                </button>
+                <div class="dropdown-menu dropdown-menu-end glass-card border-0 shadow-lg p-0 notif-dropdown">
+                    <div class="p-3 border-bottom border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold text-white">Notificaciones</h6>
+                        <a href="/notificaciones/limpiar" class="x-small text-primary text-decoration-none">Marcar como leídas</a>
+                    </div>
+                    <div class="notif-list">
+                        {% for n in unread_notifs %}
+                        <div class="p-3 border-bottom border-secondary border-opacity-10 notif-item">
+                            <div class="d-flex align-items-start">
+                                <div class="bg-primary bg-opacity-10 p-2 rounded-circle me-3">
+                                    <i class="fas {% if n.tipo == 'SOLICITUD' %}fa-file-invoice{% else %}fa-info-circle{% endif %} text-primary small"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <p class="mb-1 small text-white notif-message">{{ n.mensaje }}</p>
+                                    <span class="x-small text-muted">{{ n.fecha.strftime('%d/%m %H:%M') }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="p-4 text-center">
+                            <i class="fas fa-bell-slash text-muted mb-2 d-block fa-lg"></i>
+                            <p class="text-muted small mb-0">No hay notificaciones nuevas</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <a href="/logout" class="navbar-link logout">
+                <i class="fas fa-sign-out-alt"></i> Salir
+            </a>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <header class="mb-4">
+            <h2 class="fw-bold">Análisis Predictivo de Recursos</h2>
+            <p class="text-muted">Proyección matemática de la demanda de CPU, RAM y GPU basada en el crecimiento actual</p>
+        </header>
+
+        <!-- Configuration Form -->
+        <div class="glass-card mb-4">
+            <form method="POST" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">Tasa de Crecimiento Mensual (%)</label>
+                    <input type="number" step="0.5" min="0.5" max="50" name="tasa" value="{{ prediccion.tasa }}" class="form-control form-control-premium config-input">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">Meses de Proyección</label>
+                    <input type="number" min="1" max="60" name="meses" value="{{ prediccion.meses }}" class="form-control form-control-premium config-input">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">Puertos por Switch</label>
+                    <input type="number" min="8" max="96" step="4" name="puertos" value="{{ prediccion.switch.puertos_switch }}" class="form-control form-control-premium config-input">
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-premium w-100">
+                        <i class="fas fa-calculator me-2"></i>Calcular
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        {% set u = prediccion.uso_actual %}
+        {% set a = prediccion.agotamiento %}
+        {% set e = prediccion.equipos %}
+        {% set s = prediccion.switch %}
+
+        <!-- Summary Cards -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-4">
+                <div class="glass-card pred-card cpu">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <p class="text-muted small fw-bold text-uppercase mb-1">CPU</p>
+                            <h3 class="fw-bold mb-0">{{ u.cpu_uso }} / {{ u.cpu_total }} núcleos</h3>
+                        </div>
+                        <div class="bg-primary bg-opacity-10 p-2 rounded">
+                            <i class="fas fa-microchip text-primary"></i>
+                        </div>
+                    </div>
+                    <div class="progress-premium mb-2">
+                        <div class="progress-bar bg-primary" style="width: {{ u.cpu_pct }}%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="small text-muted">{{ u.cpu_pct }}% utilizado</span>
+                        {% if a.cpu %}
+                            <span class="badge bg-danger exhaustion-badge"><i class="fas fa-exclamation-triangle me-1"></i>Agotamiento: Mes {{ a.cpu }}</span>
+                        {% else %}
+                            <span class="badge bg-success exhaustion-badge"><i class="fas fa-check me-1"></i>Sin agotamiento</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="glass-card pred-card ram">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <p class="text-muted small fw-bold text-uppercase mb-1">RAM</p>
+                            <h3 class="fw-bold mb-0">{{ u.ram_uso }} / {{ u.ram_total }} GB</h3>
+                        </div>
+                        <div class="bg-success bg-opacity-10 p-2 rounded">
+                            <i class="fas fa-memory text-success"></i>
+                        </div>
+                    </div>
+                    <div class="progress-premium mb-2">
+                        <div class="progress-bar bg-success" style="width: {{ u.ram_pct }}%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="small text-muted">{{ u.ram_pct }}% utilizado</span>
+                        {% if a.ram %}
+                            <span class="badge bg-danger exhaustion-badge"><i class="fas fa-exclamation-triangle me-1"></i>Agotamiento: Mes {{ a.ram }}</span>
+                        {% else %}
+                            <span class="badge bg-success exhaustion-badge"><i class="fas fa-check me-1"></i>Sin agotamiento</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="glass-card pred-card gpu">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <p class="text-muted small fw-bold text-uppercase mb-1">GPU</p>
+                            <h3 class="fw-bold mb-0">{{ u.gpu_uso }} / {{ u.gpu_total }} GPUs</h3>
+                        </div>
+                        <div class="bg-warning bg-opacity-10 p-2 rounded">
+                            <i class="fas fa-vr-cardboard text-warning"></i>
+                        </div>
+                    </div>
+                    <div class="progress-premium mb-2">
+                        <div class="progress-bar bg-warning" style="width: {{ u.gpu_pct }}%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="small text-muted">{{ u.gpu_pct }}% utilizado</span>
+                        {% if a.gpu %}
+                            <span class="badge bg-danger exhaustion-badge"><i class="fas fa-exclamation-triangle me-1"></i>Agotamiento: Mes {{ a.gpu }}</span>
+                        {% else %}
+                            <span class="badge bg-success exhaustion-badge"><i class="fas fa-check me-1"></i>Sin agotamiento</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Equipment & Switch -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-6">
+                <div class="glass-card">
+                    <h5 class="fw-bold mb-3"><i class="fas fa-server me-2"></i>Necesidad de Equipos (a 12 meses)</h5>
+                    <div class="table-responsive">
+                        <table class="table table-borderless mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Recurso</th>
+                                    <th>Por Nodo</th>
+                                    <th>Déficit Proyectado</th>
+                                    <th>Nodos Necesarios</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><i class="fas fa-microchip text-primary me-2"></i>CPU</td>
+                                    <td>{{ e.cpu_por_nodo }} núcleos</td>
+                                    <td>{{ "%.1f"|format(e.nodos_cpu * e.cpu_por_nodo) }} núcleos</td>
+                                    <td><strong>{{ e.nodos_cpu }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td><i class="fas fa-memory text-success me-2"></i>RAM</td>
+                                    <td>{{ e.ram_por_nodo }} GB</td>
+                                    <td>{{ "%.1f"|format(e.nodos_ram * e.ram_por_nodo) }} GB</td>
+                                    <td><strong>{{ e.nodos_ram }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td><i class="fas fa-vr-cardboard text-warning me-2"></i>GPU</td>
+                                    <td>{{ e.gpu_por_nodo }} GPUs</td>
+                                    <td>{{ e.nodos_gpu * e.gpu_por_nodo }} GPUs</td>
+                                    <td><strong>{{ e.nodos_gpu }}</strong></td>
+                                </tr>
+                                <tr class="table-active fw-bold">
+                                    <td><i class="fas fa-cubes me-2"></i>Total Nuevos Nodos</td>
+                                    <td></td>
+                                    <td></td>
+                                    <td><span class="badge bg-primary fs-6">{{ e.total_nuevos }}</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="glass-card pred-card {% if s.necesita_switch %}danger{% else %}success{% endif %}">
+                    <h5 class="fw-bold mb-3"><i class="fas fa-network-wired me-2"></i>Recomendación de Switch</h5>
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="display-6 fw-bold me-3 {% if s.necesita_switch %}text-danger{% else %}text-success{% endif %}">
+                            {% if s.necesita_switch %}<i class="fas fa-times-circle"></i>{% else %}<i class="fas fa-check-circle"></i>{% endif %}
+                        </div>
+                        <div>
+                            <h4 class="fw-bold mb-1 {% if s.necesita_switch %}text-danger{% else %}text-success{% endif %}">
+                                {% if s.necesita_switch %}Se requiere Switch adicional{% else %}Switch actual suficiente{% endif %}
+                            </h4>
+                            <p class="text-muted small mb-0">
+                                {% if s.necesita_switch %}
+                                    Se necesitan <strong>{{ s.switches_necesarios }}</strong> switch(es) para soportar <strong>{{ s.total_final }}</strong> nodos totales
+                                {% else %}
+                                    El switch actual soporta los <strong>{{ s.total_final }}</strong> nodos sin problemas
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="fw-bold fs-5">{{ s.nodos_actuales }}</div>
+                            <small class="text-muted">Nodos Actuales</small>
+                        </div>
+                        <div class="col-4">
+                            <div class="fw-bold fs-5">{{ s.total_final }}</div>
+                            <small class="text-muted">Nodos Finales</small>
+                        </div>
+                        <div class="col-4">
+                            <div class="fw-bold fs-5">{{ s.puertos_switch }}</div>
+                            <small class="text-muted">Puertos/Switch</small>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="fw-bold fs-5">{{ s.switches_necesarios }}</div>
+                            <small class="text-muted">Switches Requeridos</small>
+                        </div>
+                        <div class="col-6">
+                            <div class="fw-bold fs-5">{{ s.puertos_libres }}</div>
+                            <small class="text-muted">Puertos Libres</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="glass-card mb-4">
+            <h5 class="fw-bold mb-3"><i class="fas fa-chart-line me-2"></i>Proyección de Uso de Recursos</h5>
+            <div class="chart-container">
+                <canvas id="predChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Projection Table -->
+        <div class="glass-card">
+            <h5 class="fw-bold mb-3"><i class="fas fa-table me-2"></i>Tabla de Proyección Detallada</h5>
+            <div class="table-responsive">
+                <table class="table table-hover custom-table pred-table">
+                    <thead>
+                        <tr>
+                            <th>Mes</th>
+                            <th>Fecha</th>
+                            <th>CPU (núcleos)</th>
+                            <th>CPU %</th>
+                            <th>RAM (GB)</th>
+                            <th>RAM %</th>
+                            <th>GPU</th>
+                            <th>GPU %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in prediccion.proyecciones %}
+                        <tr class="table-row-hover">
+                            <td>{{ p.mes }}</td>
+                            <td>{{ p.fecha }}</td>
+                            <td>{{ p.cpu_uso }}</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress-premium flex-grow-1" style="height: 6px;">
+                                        <div class="progress-bar {% if p.cpu_pct >= 90 %}bg-danger{% elif p.cpu_pct >= 70 %}bg-warning{% else %}bg-primary{% endif %}" style="width: {{ p.cpu_pct }}%"></div>
+                                    </div>
+                                    <span class="small {% if p.cpu_pct >= 90 %}text-danger fw-bold{% endif %}">{{ p.cpu_pct }}%</span>
+                                </div>
+                            </td>
+                            <td>{{ p.ram_uso }}</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress-premium flex-grow-1" style="height: 6px;">
+                                        <div class="progress-bar {% if p.ram_pct >= 90 %}bg-danger{% elif p.ram_pct >= 70 %}bg-warning{% else %}bg-success{% endif %}" style="width: {{ p.ram_pct }}%"></div>
+                                    </div>
+                                    <span class="small {% if p.ram_pct >= 90 %}text-danger fw-bold{% endif %}">{{ p.ram_pct }}%</span>
+                                </div>
+                            </td>
+                            <td>{{ p.gpu_uso }}</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress-premium flex-grow-1" style="height: 6px;">
+                                        <div class="progress-bar {% if p.gpu_pct >= 90 %}bg-danger{% elif p.gpu_pct >= 70 %}bg-warning{% else %}bg-warning{% endif %}" style="width: {{ p.gpu_pct }}%"></div>
+                                    </div>
+                                    <span class="small {% if p.gpu_pct >= 90 %}text-danger fw-bold{% endif %}">{{ p.gpu_pct }}%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const ctx = document.getElementById('predChart').getContext('2d');
+        const labels = {{ prediccion.proyecciones | map(attribute='fecha') | list | tojson }};
+        const cpuData = {{ prediccion.proyecciones | map(attribute='cpu_pct') | list | tojson }};
+        const ramData = {{ prediccion.proyecciones | map(attribute='ram_pct') | list | tojson }};
+        const gpuData = {{ prediccion.proyecciones | map(attribute='gpu_pct') | list | tojson }};
+
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+        const textColor = isDark ? '#94a3b8' : '#64748b';
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'CPU %',
+                    data: cpuData,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59,130,246,0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 3,
+                }, {
+                    label: 'RAM %',
+                    data: ramData,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16,185,129,0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 3,
+                }, {
+                    label: 'GPU %',
+                    data: gpuData,
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'rgba(245,158,11,0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 3,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: textColor, font: { size: 12 } }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: gridColor },
+                        ticks: { color: textColor }
+                    },
+                    y: {
+                        grid: { color: gridColor },
+                        ticks: { color: textColor },
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: 'Uso (%)',
+                            color: textColor
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+    <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
+</body>
+
+</html>

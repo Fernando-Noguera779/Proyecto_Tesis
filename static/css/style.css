@@ -550,3 +550,169 @@ label.form-label {
 .news-desc-truncate {
     max-width: 400px;
 }
+
+.pred-card {
+    border-left: 4px solid var(--primary-color);
+    transition: all 0.3s ease;
+}
+.pred-card.cpu { border-left-color: #3b82f6; }
+.pred-card.ram { border-left-color: #10b981; }
+.pred-card.gpu { border-left-color: #f59e0b; }
+.pred-card.switch { border-left-color: #8b5cf6; }
+.pred-card.danger { border-left-color: #ef4444; }
+.pred-card.success { border-left-color: #10b981; }
+
+/* ===== RESPONSIVE ===== */
+.navbar-toggle-btn {
+    display: none;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    line-height: 1;
+}
+
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1049;
+}
+.sidebar-overlay.active {
+    display: block;
+}
+
+@media (max-width: 768px) {
+    .navbar-toggle-btn {
+        display: block;
+    }
+
+    body:has(.main-content) .navbar-institutional {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        z-index: 1050;
+    }
+    body:has(.main-content) .navbar-institutional.open {
+        transform: translateX(0);
+    }
+
+    .navbar-institutional .navbar-brand-group {
+        justify-content: flex-start;
+        gap: 0.5rem;
+    }
+
+    .main-content {
+        margin-left: 0 !important;
+        padding: 1.25rem !important;
+    }
+
+    .glass-card {
+        padding: 1.25rem;
+    }
+
+    h2.fw-bold {
+        font-size: 1.35rem;
+    }
+
+    .config-input {
+        max-width: 100% !important;
+        width: 100%;
+    }
+
+    .node-card {
+        border-left-width: 3px;
+    }
+
+    .hero-section {
+        padding: 2rem 1rem !important;
+        text-align: center;
+    }
+    .hero-section .display-4,
+    .hero-section .display-3 {
+        font-size: 1.75rem !important;
+    }
+    .hero-section .d-flex.gap-3 {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .hero-section .d-flex.gap-3 .btn {
+        width: 100%;
+    }
+
+    #info {
+        padding-left: 0 !important;
+    }
+
+    footer {
+        padding-left: 0 !important;
+    }
+}
+
+@media (max-width: 576px) {
+    .main-content {
+        padding: 0.75rem !important;
+    }
+
+    .glass-card {
+        padding: 1rem;
+    }
+
+    h2.fw-bold {
+        font-size: 1.15rem;
+    }
+
+    .table {
+        font-size: 0.8rem;
+    }
+    .table th, .table td {
+        padding: 0.5rem !important;
+    }
+    .table th {
+        font-size: 0.65rem;
+    }
+
+    .id-badge {
+        font-size: 0.7rem;
+    }
+
+    .status-pill {
+        font-size: 0.65rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .btn-sm {
+        padding: 0.25rem 0.4rem;
+        font-size: 0.7rem;
+    }
+
+    .chart-container {
+        height: 250px !important;
+    }
+
+    .terminal-container {
+        max-height: 350px;
+    }
+
+    .notif-dropdown {
+        min-width: 280px !important;
+    }
+
+    .search-container {
+        width: 100%;
+    }
+    .search-container input {
+        width: 100%;
+    }
+}
+
+@media (min-width: 769px) {
+    .sidebar-overlay {
+        display: none !important;
+    }
+}

@@ -89,6 +89,33 @@ class Solicitud(db.Model):
         self.correo_solicitante = correo_solicitante
         self.estado = estado
 
+class SolicitudAprobada(db.Model):
+    __tablename__ = 'solicitudes_aprobadas'
+    id_solicitud_aprobada = db.Column(db.Integer, primary_key=True)
+    id_solicitud_origen = db.Column(db.Integer, db.ForeignKey('solicitudes.id_solicitud'))
+    fecha_aprobacion = db.Column(db.DateTime, default=datetime.utcnow)
+    resolucion_numero = db.Column(db.String(50), nullable=True)
+    estado_aprobacion = db.Column(db.String(50), default='PROCESADA')
+
+    # ---- AGREGAR ESTA RELACIÓN ----
+    # Nos permite hacer: aprobacion.solicitud para ir a la solicitud madre
+    solicitud = db.relationship('Solicitud', backref=db.backref('aprobacion', uselist=False))
+
+
+class Proyecto(db.Model):
+    __tablename__ = 'proyectos'
+    id_proyecto = db.Column(db.Integer, primary_key=True)
+    id_solicitud_aprobada = db.Column(db.Integer, db.ForeignKey('solicitudes_aprobadas.id_solicitud_aprobada'))
+    id_administrador_autorizante = db.Column(db.Integer, db.ForeignKey('usuarios.id_usuario'))
+    usuario_sistema_creado = db.Column(db.String(50), nullable=True)
+    acceso_nodos_fisicos = db.Column(db.Boolean, default=False)
+    requiere_maquina_virtual = db.Column(db.Boolean, default=False)
+    observaciones = db.Column(db.Text, nullable=True)
+
+    # ---- AGREGAR ESTA RELACIÓN ----
+    # Nos permite hacer: p.solicitud_aprobada para ir a la tabla del medio
+    solicitud_aprobada = db.relationship('SolicitudAprobada', backref=db.backref('proyecto', uselist=False))
+
 class Notificacion(db.Model):
     __tablename__ = 'notificaciones'
     id_notificacion = db.Column(db.Integer, primary_key=True)
@@ -122,6 +149,8 @@ class Noticia(db.Model):
         self.descripcion = descripcion
         self.fecha_evento = fecha_evento
         self.autor_id = autor_id
+
+
 
 # --- Rutas ---
 
@@ -288,26 +317,57 @@ def aceptar_solicitud(id):
     if 'user_id' not in session or not session.get('is_admin'):
         flash('Acceso no autorizado', 'danger')
         return redirect(url_for('index'))
-    
+
     solicitud = Solicitud.query.get_or_404(id)
-    solicitud.estado = 'ACEPTADA'
-    solicitud.acceso_nodos = True if request.form.get('acceso_nodos') else False
-    solicitud.maquina_virtual = True if request.form.get('maquina_virtual') else False
-    solicitud.detalles_mv = request.form.get('detalles_mv')
-    solicitud.autorizado_por = session.get('user_name')
     
-    db.session.commit()
+    try:
+        # 1. Actualizar la solicitud madre
+        solicitud.estado = 'ACEPTADA'
+        solicitud.acceso_nodos = True if request.form.get('acceso_nodos') else False
+        solicitud.maquina_virtual = True if request.form.get('maquina_virtual') else False
+        solicitud.detalles_mv = request.form.get('detalles_mv')
+        solicitud.autorizado_por = session.get('user_name')
 
-    # Notificar al usuario
-    notif = Notificacion(
-        id_usuario_destino=solicitud.id_usuario_solicitante,
-        mensaje=f"Tu solicitud para '{solicitud.nombre_proyecto}' ha sido ACEPTADA.",
-        tipo='ESTADO'
-    )
-    db.session.add(notif)
-    db.session.commit()
+        # 2. Crear el registro en solicitudes_aprobadas
+        # Generamos un número de resolución ficticio o secuencial para la auditoría
+        num_resolucion = f"RES-{datetime.now().year}-{solicitud.id_solicitud:03d}"
+        
+        aprobacion = SolicitudAprobada(
+            id_solicitud_origen=solicitud.id_solicitud,
+            fecha_aprobacion=datetime.now(),
+            resolucion_numero=num_resolucion,
+            estado_aprobacion='PROCESADA'
+        )
+        db.session.add(aprobacion)
+        db.session.flush() # Esto genera el id_solicitud_aprobada sin cerrar la transacción
 
-    flash(f'Solicitud #{id} aceptada y autorizada', 'success')
+        # 3. Crear el proyecto formal amarrado a la aprobación
+        nuevo_proyecto = Proyecto(
+            id_solicitud_aprobada=aprobacion.id_solicitud_aprobada,
+            id_administrador_autorizante=session.get('user_id'),
+            usuario_sistema_creado=f"usr_{solicitud.id_solicitud}", # Nombre de usuario para el cluster
+            acceso_nodos_fisicos=solicitud.acceso_nodos,
+            requiere_maquina_virtual=solicitud.maquina_virtual,
+            observaciones=solicitud.observaciones
+        )
+        db.session.add(nuevo_proyecto)
+
+        # 4. Crear la notificación para el alumno/investigador
+        notif = Notificacion(
+            id_usuario_destino=solicitud.id_usuario_solicitante,
+            mensaje=f"Tu solicitud para '{solicitud.nombre_proyecto}' ha sido ACEPTADA y se ha creado el proyecto.",
+            tipo='ESTADO'
+        )
+        db.session.add(notif)
+
+        # Guardamos todo en la base de datos de forma atómica
+        db.session.commit()
+        flash(f'Solicitud #{id} aceptada. Registros creados en solicitudes_aprobadas y proyectos.', 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error en la base de datos al procesar la aprobación: {str(e)}', 'danger')
+
     return redirect(url_for('dashboard'))
 
 @app.route('/solicitud/<int:id>/rechazar')
@@ -499,18 +559,21 @@ def solicitud_pdf(id):
 def proyectos():
     if 'user_id' not in session:
         return redirect(url_for('index'))
-    
+
     is_admin = session.get('is_admin', False)
+
+    # Consulta relacional real usando JOINs
+    proyectos_reales = db.session.query(Proyecto).join(SolicitudAprobada).join(Solicitud).all()
     
-    # Obtener proyectos reales (solicitudes aceptadas)
-    accepted_solicitudes = Solicitud.query.filter_by(estado='ACEPTADA').all()
     db_proyectos = []
-    for s in accepted_solicitudes:
-        # Lógica de finalización automática basada en la fecha
+    for p in proyectos_reales:
+        # Recuperamos la solicitud original escalando por las relaciones del ORM
+        s = p.solicitud_aprobada.solicitud 
+        
         estado_mostrar = 'Activo'
         if s.fecha_finalizacion_estimada and s.fecha_finalizacion_estimada < datetime.now().date():
             estado_mostrar = 'Finalizado'
-            
+
         db_proyectos.append({
             'id': s.id_solicitud,
             'nombre': s.nombre_proyecto,
@@ -524,7 +587,7 @@ def proyectos():
     unread_count, unread_notifs = get_unread_notifications(user_id)
     return render_template('proyectos.html', is_admin=is_admin, proyectos=db_proyectos, unread_count=unread_count, unread_notifs=unread_notifs)
 
-@app.route('/recursos')
+@app.route('/recursos') # Asegúrate de que tenga el decorador de ruta de Flask
 def recursos():
     if 'user_id' not in session:
         return redirect(url_for('index'))
@@ -534,7 +597,7 @@ def recursos():
     user = Usuario.query.get(user_id)
     ssh_config = get_user_ssh_config(user.correo_electronico) if user else None
     
-    # Valores por defecto (evitan división por cero)
+    # Valores por defecto corregidos (evitan división por cero)
     recursos_data = {
         'nodos': [
             {'nombre': 'nodo-01', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline'},
@@ -550,7 +613,6 @@ def recursos():
         'uso_gpu': 0
     }
     
-    # Intentar obtener datos reales via SSH
     if ssh_config:
         try:
             ssh = paramiko.SSHClient()
@@ -562,32 +624,35 @@ def recursos():
                 timeout=10
             )
             
-            # Obtener uso de CPU (carga promedio)
+            # 1. Obtener uso de CPU (Carga promedio float)
             stdin, stdout, stderr = ssh.exec_command("top -bn1 | grep 'Cpu(s)' | awk '{print $2}'", timeout=10)
-            cpu_str = stdout.read().decode().strip()
-            uso_cpu_porcentaje = float(cpu_str) if cpu_str else 0
+            cpu_str = stdout.read().decode().strip().replace(',', '.') # Previene errores de localización decimal (, por .)
+            uso_cpu_porcentaje = float(cpu_str) if cpu_str else 0.0
             
-            # Obtener uso de RAM
+            # 2. Obtener uso de RAM (Convertido directamente a GB redondos para el HTML)
             stdin, stdout, stderr = ssh.exec_command("free -m | awk 'NR==2{print $3, $2}'", timeout=10)
             ram_line = stdout.read().decode().strip().split()
-            uso_ram = int(ram_line[0]) if len(ram_line) > 0 else 0
-            total_ram = int(ram_line[1]) if len(ram_line) > 1 else 1
+            uso_ram_mb = int(ram_line[0]) if len(ram_line) > 0 else 0
+            total_ram_mb = int(ram_line[1]) if len(ram_line) > 1 else 1024
             
-            # Obtener número de núcleos CPU
+            # Pasamos a GB para que coincida con el texto del HTML
+            uso_ram_gb = round(uso_ram_mb / 1024, 1)
+            total_ram_gb = round(total_ram_mb / 1024, 1)
+            
+            # 3. Obtener número de núcleos CPU
             stdin, stdout, stderr = ssh.exec_command("nproc", timeout=10)
             total_cpu = int(stdout.read().decode().strip() or 1)
             
-            # Obtener hostname del nodo
+            # 4. Obtener hostname del nodo
             stdin, stdout, stderr = ssh.exec_command("hostname", timeout=10)
             hostname = stdout.read().decode().strip()
             
             ssh.close()
             
-            # Distribuir la carga entre los nodos de forma realista
-            # Si el hostname coincide con algún nodo, usamos datos reales; si no, 
-            # asignamos los datos reales al primer nodo y simulamos variación en los demás
-            uso_ram_porcentaje = int(uso_ram / max(total_ram, 1) * 100)
+            # Calcular porcentaje de uso de RAM de forma segura
+            uso_ram_porcentaje = int((uso_ram_mb / max(total_ram_mb, 1)) * 100)
             
+            # Distribuir la carga entre los nodos
             asignado = False
             for nodo in recursos_data['nodos']:
                 if hostname and (nodo['nombre'] == hostname or nodo['nombre'].endswith(hostname[-2:])):
@@ -596,30 +661,38 @@ def recursos():
                     nodo['estado'] = 'Online'
                     asignado = True
                 else:
-                    # Variación simulada para los demás nodos basada en datos reales
                     nodo['cpu_uso'] = min(max(0, int(uso_cpu_porcentaje) + (-10 + (ord(nodo['nombre'][-1]) % 21))), 100)
                     nodo['ram_uso'] = min(max(0, uso_ram_porcentaje + (-5 + (ord(nodo['nombre'][-1]) % 11))), 100)
-                    nodo['estado'] = 'Online' if int(uso_cpu_porcentaje) > 0 or uso_ram_porcentaje > 0 else 'Offline'
+                    nodo['estado'] = 'Online' if (nodo['cpu_uso'] > 0 or nodo['ram_uso'] > 0) else 'Offline'
             
             if not asignado and int(uso_cpu_porcentaje) > 0:
                 recursos_data['nodos'][0]['cpu_uso'] = min(int(uso_cpu_porcentaje), 100)
                 recursos_data['nodos'][0]['ram_uso'] = min(uso_ram_porcentaje, 100)
                 recursos_data['nodos'][0]['estado'] = 'Online'
             
+            # Guardamos los datos estructurados para el renderizado
             recursos_data['total_cpu'] = total_cpu
-            recursos_data['uso_cpu'] = int(total_cpu * uso_cpu_porcentaje / 100)
-            recursos_data['total_ram'] = total_ram
-            recursos_data['uso_ram'] = uso_ram
+            # Mantenemos uso_cpu como float o redondeo superior para que la división en Jinja2 no de 0
+            recursos_data['uso_cpu'] = round(total_cpu * uso_cpu_porcentaje / 100, 2)
+            recursos_data['total_ram'] = total_ram_gb
+            recursos_data['uso_ram'] = uso_ram_gb
             recursos_data['total_gpu'] = 4
             recursos_data['uso_gpu'] = 1
             
-        except Exception:
-            pass  # Si falla SSH, quedan los valores por defecto
+        except Exception as e:
+            print(f"Error en SSH Recursos: {e}") # Permite depurar en la consola si el SSH falla
+            pass  
     
     # Notificaciones sin leer
     unread_count, unread_notifs = get_unread_notifications(user_id)
     
-    return render_template('recursos.html', is_admin=is_admin, recursos=recursos_data, unread_count=unread_count, unread_notifs=unread_notifs)
+    return render_template(
+        'recursos.html', 
+        is_admin=is_admin, 
+        recursos=recursos_data, 
+        unread_count=unread_count, 
+        unread_notifs=unread_notifs
+    )
 
 @app.route('/analisis-predictivo', methods=['GET', 'POST'])
 def analisis_predictivo():

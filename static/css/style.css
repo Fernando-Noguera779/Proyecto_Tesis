@@ -90,8 +90,8 @@ body {
     box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
 }
 
-h1, h2, h3, h4, h5, h6 {
-    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+.hero-section h1, .hero-section h2 {
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .btn-premium {
@@ -299,6 +299,12 @@ label.form-label {
 .w-45-p { width: 45%; }
 .w-60-p { width: 60%; }
 .w-24-p { width: 24%; }
+
+@media (max-width: 768px) {
+    .w-85-p, .w-45-p, .w-60-p, .w-24-p {
+        width: 100% !important;
+    }
+}
 
 .profile-img-lg {
     width: 150px;
@@ -588,6 +594,7 @@ label.form-label {
     display: block;
 }
 
+/* REEMPLAZÁ tu bloque actual por este optimizado: */
 @media (max-width: 768px) {
     .navbar-toggle-btn {
         display: block;
@@ -629,28 +636,40 @@ label.form-label {
         border-left-width: 3px;
     }
 
-    .hero-section {
-        padding: 2rem 1rem !important;
-        text-align: center;
+    /* CORRECCIÓN AQUÍ: Agregamos hero-section a la limpieza total */
+    .hero-section, #info, footer {
+        padding-left: 1.25rem !important;
+        padding-right: 1.25rem !important;
     }
+
+    .hero-section {
+        padding-top: 5rem !important;
+        padding-bottom: 3rem !important;
+        text-align: center;
+        min-height: auto !important;
+    }
+    
+    .hero-section .hero-logo {
+        max-height: 200px;
+        margin-top: 2rem;
+    }
+
     .hero-section .display-4,
     .hero-section .display-3 {
-        font-size: 1.75rem !important;
+        font-size: 2rem !important;
     }
+    
+    .hero-section .lead {
+        font-size: 1rem !important;
+    }
+
     .hero-section .d-flex.gap-3 {
         flex-direction: column;
         align-items: stretch;
     }
+    
     .hero-section .d-flex.gap-3 .btn {
         width: 100%;
-    }
-
-    #info {
-        padding-left: 0 !important;
-    }
-
-    footer {
-        padding-left: 0 !important;
     }
 }
 

@@ -32,9 +32,11 @@
             <a href="/recursos" class="navbar-link">
                 <i class="fas fa-server"></i> Recursos
             </a>
+            {% if is_admin %}
             <a href="/analisis-predictivo" class="navbar-link">
                 <i class="fas fa-chart-bar"></i> Análisis
             </a>
+            {% endif %}
             <a href="/solicitud" class="navbar-link">
                 <i class="fas fa-file-alt"></i> Solicitud
             </a>
@@ -144,14 +146,12 @@
                                 <span class="badge bg-primary bg-opacity-10 text-primary">{{ p.recursos }}</span>
                             </td>
                             <td>
-                                <div
-                                    class="status-pill {% if p.estado == 'Activo' %}status-accepted{% elif p.estado == 'Finalizado' %}status-finalized{% else %}status-pending{% endif %}">
+                                <div class="status-pill {% if p.estado == 'Activo' %}status-accepted{% elif p.estado == 'Finalizado' %}status-finalized{% else %}status-pending{% endif %}">
                                     <span class="dot"></span> {{ p.estado }}
                                 </div>
                             </td>
                             <td>
-                                <span class="text-muted"><i class="far fa-calendar-alt me-1"></i> {{ p.fecha_fin
-                                    }}</span>
+                                <span class="text-muted"><i class="far fa-calendar-alt me-1"></i> {{ p.fecha_fin }}</span>
                             </td>
                             <td class="text-end pe-4">
                                 <button class="btn btn-outline-primary btn-sm border-0 bg-primary bg-opacity-10"

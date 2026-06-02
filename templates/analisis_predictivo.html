@@ -21,6 +21,17 @@
         .pred-card.switch { border-left-color: #8b5cf6; }
         .pred-card.danger { border-left-color: #ef4444; }
         .pred-card.success { border-left-color: #10b981; }
+        
+        /* Estilos específicos para el simulador SLURM */
+        .pred-card.slurm-ready { border-left-color: #10b981; }
+        .pred-card.slurm-queue { border-left-color: #f59e0b; }
+        .pred-card.slurm-error { border-left-color: #ef4444; }
+        
+        .slurm-badge {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 0.8rem;
+        }
+
         .exhaustion-badge {
             font-size: 0.85rem;
             padding: 0.35rem 0.75rem;
@@ -61,9 +72,13 @@
             <a href="/recursos" class="navbar-link">
                 <i class="fas fa-server"></i> Recursos
             </a>
+
+            {% if is_admin %}
             <a href="/analisis-predictivo" class="navbar-link active">
                 <i class="fas fa-chart-bar"></i> Análisis
             </a>
+            {% endif %}
+
             <a href="/solicitud" class="navbar-link">
                 <i class="fas fa-file-alt"></i> Solicitud
             </a>
@@ -129,7 +144,6 @@
             <p class="text-muted">Proyección matemática de la demanda de CPU, RAM y GPU basada en el crecimiento actual</p>
         </header>
 
-        <!-- Configuration Form -->
         <div class="glass-card mb-4">
             <form method="POST" class="row g-3 align-items-end">
                 <div class="col-md-3">
@@ -146,7 +160,7 @@
                 </div>
                 <div class="col-md-3">
                     <button type="submit" class="btn btn-premium w-100">
-                        <i class="fas fa-calculator me-2"></i>Calcular
+                        <i class="fas fa-calculator me-2"></i>Calcular Proyecciones
                     </button>
                 </div>
             </form>
@@ -156,8 +170,8 @@
         {% set a = prediccion.agotamiento %}
         {% set e = prediccion.equipos %}
         {% set s = prediccion.switch %}
+        {% set slurm = prediccion.slurm %}
 
-        <!-- Summary Cards -->
         <div class="row g-4 mb-4">
             <div class="col-md-4">
                 <div class="glass-card pred-card cpu">
@@ -233,7 +247,6 @@
             </div>
         </div>
 
-        <!-- Equipment & Switch -->
         <div class="row g-4 mb-4">
             <div class="col-md-6">
                 <div class="glass-card">
@@ -328,7 +341,115 @@
             </div>
         </div>
 
-        <!-- Chart -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-5">
+                <div class="glass-card h-100">
+                    <h5 class="fw-bold mb-3"><i class="fas fa-terminal me-2 text-muted"></i>Simulador de Asignación SLURM</h5>
+                    <form method="POST">
+                        <input type="hidden" name="tasa" value="{{ prediccion.tasa }}">
+                        <input type="hidden" name="meses" value="{{ prediccion.meses }}">
+                        <input type="hidden" name="puertos" value="{{ s.puertos_switch }}">
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">CPUs Requeridas (Cores)</label>
+                            <input type="number" min="0" max="128" name="req_cpu" value="{{ slurm.req_cpu }}" class="form-control form-control-premium" placeholder="Ej. 16" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Memoria RAM Requerida (GB)</label>
+                            <input type="number" min="0" max="512" name="req_ram" value="{{ slurm.req_ram }}" class="form-control form-control-premium" placeholder="Ej. 64" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">GPUs Requeridas</label>
+                            <input type="number" min="0" max="4" name="req_gpu" value="{{ slurm.req_gpu }}" class="form-control form-control-premium" placeholder="Ej. 1" required>
+                        </div>
+                        <div class="form-check form-switch mb-4">
+                            <input class="form-check-input" type="checkbox" role="switch" id="req_exclusivo" name="req_exclusivo" value="true" {% if slurm.req_exclusivo %}checked{% endif %}>
+                            <label class="form-check-label small fw-bold" for="req_exclusivo">¿Solicitar Nodo Exclusivo? (Partición C4)</label>
+                        </div>
+                        <button type="submit" class="btn btn-premium w-100">
+                            <i class="fas fa-tasks me-2"></i>Evaluar Cola de Trabajo
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="col-md-7">
+                <div class="glass-card h-100 pred-card {% if slurm.estado == 'ejecucion_inmediata' %}slurm-ready{% elif slurm.estado == 'en_cola' %}slurm-queue{% else %}slurm-error{% endif %}">
+                    <h5 class="fw-bold mb-3"><i class="fas fa-layer-group me-2"></i>Resultado del Planificador</h5>
+                    
+                    {% if slurm.req_cpu == 0 and slurm.req_ram == 0 and slurm.req_gpu == 0 %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-info-circle text-muted mb-2 fa-2x"></i>
+                            <p class="text-muted small mb-0">Ingrese los requisitos de la tarea en el panel izquierdo para simular el comportamiento de asignación de recursos en tiempo real.</p>
+                        </div>
+                    {% else %}
+                        <div class="d-flex align-items-center mb-4">
+                            <div class="display-6 me-3">
+                                {% if slurm.estado == 'ejecucion_inmediata' %}
+                                    <i class="fas fa-play-circle text-success"></i>
+                                {% elif slurm.estado == 'en_cola' %}
+                                    <i class="fas fa-clock text-warning"></i>
+                                {% else %}
+                                    <i class="fas fa-ban text-danger"></i>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <h4 class="fw-bold mb-1">
+                                    {% if slurm.estado == 'ejecucion_inmediata' %}
+                                        Asignación Concedida
+                                    {% elif slurm.estado == 'en_cola' %}
+                                        Trabajo en Espera
+                                    {% else %}
+                                        Trabajo Rechazado
+                                    {% endif %}
+                                </h4>
+                                <span class="badge slurm-badge {% if slurm.estado == 'ejecucion_inmediata' %}bg-success{% elif slurm.estado == 'en_cola' %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                                    {% if slurm.estado == 'ejecucion_inmediata' %}
+                                        STATUS: RUNNING (Allocated)
+                                    {% elif slurm.estado == 'en_cola' %}
+                                        STATUS: PENDING (Resources)
+                                    {% else %}
+                                        STATUS: FAILED (CapacityLimit)
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+
+                        {% if slurm.motivo %}
+                            <div class="alert alert-secondary bg-dark bg-opacity-25 border-0 text-white small mb-4">
+                                <i class="fas fa-code-branch me-2 text-muted"></i>{{ slurm.motivo }}
+                            </div>
+                        {% endif %}
+
+                        <div class="row g-3 text-center">
+                            <div class="col-6 col-sm-4">
+                                <div class="bg-light bg-opacity-5 p-3 rounded">
+                                    <div class="fw-bold text-white fs-6">{{ slurm.nodo_sugerido }}</div>
+                                    <small class="text-muted d-block mt-1">Nodo Destino</small>
+                                </div>
+                            </div>
+                            <div class="col-6 col-sm-4">
+                                <div class="bg-light bg-opacity-5 p-3 rounded">
+                                    <div class="fw-bold text-white fs-6">
+                                        {% if slurm.tiempo_espera %}{{ slurm.tiempo_espera }}{% else %}Inmediato{% endif %}
+                                    </div>
+                                    <small class="text-muted d-block mt-1">Tiempo Estimado</small>
+                                </div>
+                            </div>
+                            <div class="col-12 col-sm-4">
+                                <div class="bg-light bg-opacity-5 p-3 rounded">
+                                    <div class="fw-bold text-white fs-6">
+                                        {% if slurm.req_exclusivo %}Exclusiva (C4){% else %}Compartida (C1-C3){% endif %}
+                                    </div>
+                                    <small class="text-muted d-block mt-1">Política de Acceso</small>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
         <div class="glass-card mb-4">
             <h5 class="fw-bold mb-3"><i class="fas fa-chart-line me-2"></i>Proyección de Uso de Recursos</h5>
             <div class="chart-container">
@@ -336,7 +457,6 @@
             </div>
         </div>
 
-        <!-- Projection Table -->
         <div class="glass-card">
             <h5 class="fw-bold mb-3"><i class="fas fa-table me-2"></i>Tabla de Proyección Detallada</h5>
             <div class="table-responsive">

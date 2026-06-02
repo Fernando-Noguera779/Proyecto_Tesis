@@ -32,9 +32,11 @@
             <a href="/recursos" class="navbar-link">
                 <i class="fas fa-server"></i> Recursos
             </a>
+            {% if is_admin %}
             <a href="/analisis-predictivo" class="navbar-link">
                 <i class="fas fa-chart-bar"></i> Análisis
             </a>
+            {% endif %}
             <a href="/solicitud" class="navbar-link">
                 <i class="fas fa-file-alt"></i> Solicitud
             </a>
@@ -66,32 +68,6 @@
                         <h6 class="mb-0 fw-bold text-white">Notificaciones</h6>
                         <a href="/notificaciones/limpiar" class="x-small text-primary text-decoration-none">Marcar como leídas</a>
                     </div>
-                    <div class="notif-list">
-                        {% for n in unread_notifs %}
-                        <div class="p-3 border-bottom border-secondary border-opacity-10 notif-item">
-                            <div class="d-flex align-items-start">
-                                <div class="bg-primary bg-opacity-10 p-2 rounded-circle me-3">
-                                    <i class="fas {% if n.tipo == 'SOLICITUD' %}fa-file-invoice{% else %}fa-info-circle{% endif %} text-primary small"></i>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <p class="mb-1 small text-white notif-message">{{ n.mensaje }}</p>
-                                    <span class="x-small text-muted">{{ n.fecha.strftime('%d/%m %H:%M') }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        {% else %}
-                        <div class="p-4 text-center">
-                            <i class="fas fa-bell-slash text-muted mb-2 d-block fa-lg"></i>
-                            <p class="text-muted small mb-0">No hay notificaciones nuevas</p>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-            <a href="/logout" class="navbar-link logout">
-                <i class="fas fa-sign-out-alt"></i> Salir
-            </a>
-        </div>
                     <div class="notif-list">
                         {% for n in unread_notifs %}
                         <div class="p-3 border-bottom border-secondary border-opacity-10 notif-item">
@@ -188,7 +164,7 @@
                             </td>
                             {% if is_admin %}
                             <td class="text-end pe-4">
-                                <a href="{{ url_for('eliminar_noticia', id=noticia.id_noticia) }}" 
+                                <a href="{{ url_for('eliminar_noticia', id=noticia.id_noticia) }}"
                                    class="btn btn-outline-danger btn-sm border-0 bg-danger bg-opacity-10"
                                    title="Eliminar Noticia"
                                    onclick="return confirm('¿Eliminar esta noticia?')">
@@ -212,7 +188,6 @@
     </main>
 
     {% if is_admin %}
-    <!-- Modal Nueva Noticia -->
     <div class="modal fade" id="modalNuevaNoticia" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content glass-card border-0">

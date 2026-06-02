@@ -32,9 +32,11 @@
             <a href="/recursos" class="navbar-link">
                 <i class="fas fa-server"></i> Recursos
             </a>
+            {% if is_admin %}
             <a href="/analisis-predictivo" class="navbar-link">
                 <i class="fas fa-chart-bar"></i> Análisis
             </a>
+            {% endif %}
             <a href="/solicitud" class="navbar-link">
                 <i class="fas fa-file-alt"></i> Solicitud
             </a>
@@ -185,7 +187,6 @@
         </div>
     </main>
 
-    <!-- Modal Foto -->
     <div class="modal fade" id="modalFoto" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content glass-card border-0">
@@ -211,7 +212,6 @@
         </div>
     </div>
 
-    <!-- Modal Password -->
     <div class="modal fade" id="modalPassword" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content glass-card border-0">

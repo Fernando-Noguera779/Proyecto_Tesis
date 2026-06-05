@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, jsonify
+import random
+from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, jsonify, abort
 import paramiko
 import re
 import io
@@ -89,6 +90,32 @@ class Solicitud(db.Model):
         self.correo_solicitante = correo_solicitante
         self.estado = estado
 
+class SolicitudAprobada(db.Model):
+    __tablename__ = 'solicitudes_aprobadas'
+    id_solicitud_aprobada = db.Column(db.Integer, primary_key=True)
+    id_solicitud_origen = db.Column(db.Integer, db.ForeignKey('solicitudes.id_solicitud'))
+    fecha_aprobacion = db.Column(db.DateTime, default=datetime.utcnow)
+    resolucion_numero = db.Column(db.String(50), nullable=True)
+    estado_aprobacion = db.Column(db.String(50), default='ACTIVO')
+     
+    # ---- AGREGAR ESTA RELACIÓN ----
+    # Nos permite hacer: aprobacion.solicitud para ir a la solicitud madre
+    solicitud = db.relationship('Solicitud', backref=db.backref('aprobacion', uselist=False))
+
+class Proyecto(db.Model):
+    __tablename__ = 'proyectos'
+    id_proyecto = db.Column(db.Integer, primary_key=True)
+    id_solicitud_aprobada = db.Column(db.Integer, db.ForeignKey('solicitudes_aprobadas.id_solicitud_aprobada'))
+    id_administrador_autorizante = db.Column(db.Integer, db.ForeignKey('usuarios.id_usuario'))
+    usuario_sistema_creado = db.Column(db.String(50), nullable=True)
+    acceso_nodos_fisicos = db.Column(db.Boolean, default=False)  # Verifica el nombre exacto en tu SQL
+    requiere_maquina_virtual = db.Column(db.Boolean, default=False)
+    observaciones = db.Column(db.Text, nullable=True)
+
+    # ---- AGREGAR ESTA RELACIÓN ----
+    # Nos permite hacer: p.solicitud_aprobada para ir a la tabla del medio
+    solicitud_aprobada = db.relationship('SolicitudAprobada', backref=db.backref('proyecto', uselist=False))
+
 class Notificacion(db.Model):
     __tablename__ = 'notificaciones'
     id_notificacion = db.Column(db.Integer, primary_key=True)
@@ -125,30 +152,77 @@ class Noticia(db.Model):
 
 # --- Rutas ---
 
+# ==========================================
+#          RUTAS DE ACCESO PRINCIPAL
+# ==========================================
+
 @app.route('/')
 def index():
+    """Renderiza la Landing Page institucional del Cluster NIDTEC."""
     return render_template('index.html')
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
+        # 1. Validar Captcha Matemático
+        try:
+            user_answer = int(request.form.get('captcha_answer', 0))
+        except ValueError:
+            user_answer = 0
+
+        correct_answer = session.get('captcha_result')
+
+        if correct_answer is None or user_answer != correct_answer:
+            flash('Captcha incorrecto. Por favor, resuelva la suma.', 'danger')
+            return redirect(url_for('login'))
+
+        # 2. Lógica de Autenticación Real usando SQLAlchemy y Bcrypt
         correo = request.form.get('correo')
         password = request.form.get('password')
-        
-        user = Usuario.query.filter_by(correo_electronico=correo).first()
-        
-        if user and bcrypt.check_password_hash(user.password_hash, password):
-            session['user_id'] = user.id_usuario
-            session['is_admin'] = user.es_administrador
-            session['user_name'] = user.nombre_apellido
+
+        # Buscamos al usuario en la base de datos de PostgreSQL
+        usuario = Usuario.query.filter_by(correo_electronico=correo).first()
+
+        # Verificamos si existe y si el hash de la contraseña coincide
+        if usuario and bcrypt.check_password_hash(usuario.password_hash, password):
+            # Guardamos los datos críticos en la sesión de Flask
+            session['user_id'] = usuario.id_usuario
+            session['user_name'] = usuario.nombre_apellido
+            session['is_admin'] = usuario.es_administrador
+
+            # Limpiamos el captcha usado de la sesión
+            session.pop('captcha_result', None)
+
+            flash(f'¡Bienvenido de vuelta, {usuario.nombre_apellido}!', 'success')
             return redirect(url_for('dashboard'))
-        
-        flash('Credenciales incorrectas', 'danger')
+        else:
+            # Si las credenciales fallan, generamos números nuevos para evitar ataques de fuerza bruta
+            flash('Correo electrónico o contraseña incorrectos.', 'danger')
+
+            num1 = random.randint(1, 9)
+            num2 = random.randint(1, 9)
+            session['captcha_result'] = num1 + num2
+            return render_template('login.html', num1=num1, num2=num2)
+
+    # Flujo normal GET (Cuando cargan la página de login por primera vez)
+    num1 = random.randint(1, 9)
+    num2 = random.randint(1, 9)
+    session['captcha_result'] = num1 + num2
+
+    return render_template('login.html', num1=num1, num2=num2)
+
+@app.route('/recuperar_password', methods=['GET', 'POST'])
+def recuperar_password():
+    if request.method == 'POST':
+        correo = request.form.get('correo')
+        # Aquí irá tu lógica futura para enviar correo o restablecer token en PostgreSQL
+        flash('Si el correo existe en el sistema, se han enviado las instrucciones de recuperación.', 'info')
         return redirect(url_for('login'))
-    
-    if 'user_id' in session:
-        return redirect(url_for('dashboard'))
-    return render_template('login.html')
+        
+    return render_template('recuperar_password.html')
+
+
 @app.route('/registro', methods=['GET', 'POST'])
 def registro():
     if request.method == 'POST':
@@ -275,36 +349,70 @@ def nueva_solicitud():
         return redirect(url_for('dashboard'))
     
     user = Usuario.query.get(session['user_id'])
+    user_id = session.get('user_id')
+    unread_count, unread_notifs = get_unread_notifications(user_id)
     return render_template('solicitud.html', 
                          now=datetime.now(), 
                          user_email=user.correo_electronico,
-                         is_admin=session.get('is_admin', False))
+                         is_admin=session.get('is_admin', False),
+                         unread_count=unread_count, unread_notifs=unread_notifs)
 
 @app.route('/solicitud/<int:id>/aceptar', methods=['POST'])
 def aceptar_solicitud(id):
     if 'user_id' not in session or not session.get('is_admin'):
         flash('Acceso no autorizado', 'danger')
         return redirect(url_for('index'))
-    
+
     solicitud = Solicitud.query.get_or_404(id)
-    solicitud.estado = 'ACEPTADA'
-    solicitud.acceso_nodos = True if request.form.get('acceso_nodos') else False
-    solicitud.maquina_virtual = True if request.form.get('maquina_virtual') else False
-    solicitud.detalles_mv = request.form.get('detalles_mv')
-    solicitud.autorizado_por = session.get('user_name')
     
-    db.session.commit()
+    try:
+        # 1. Actualizar la solicitud madre
+        solicitud.estado = 'ACEPTADA'
+        solicitud.acceso_nodos = True if request.form.get('acceso_nodos') else False
+        solicitud.maquina_virtual = True if request.form.get('maquina_virtual') else False
+        solicitud.detalles_mv = request.form.get('detalles_mv')
+        solicitud.autorizado_por = session.get('user_name')
 
-    # Notificar al usuario
-    notif = Notificacion(
-        id_usuario_destino=solicitud.id_usuario_solicitante,
-        mensaje=f"Tu solicitud para '{solicitud.nombre_proyecto}' ha sido ACEPTADA.",
-        tipo='ESTADO'
-    )
-    db.session.add(notif)
-    db.session.commit()
+        # 2. Crear el registro en solicitudes_aprobadas
+        # Generamos un número de resolución ficticio o secuencial para la auditoría
+        num_resolucion = f"RES-{datetime.now().year}-{solicitud.id_solicitud:03d}"
+        
+        aprobacion = SolicitudAprobada(
+            id_solicitud_origen=solicitud.id_solicitud,
+            fecha_aprobacion=datetime.now(),
+            resolucion_numero=num_resolucion,
+            estado_aprobacion='PROCESADA'
+        )
+        db.session.add(aprobacion)
+        db.session.flush() # Esto genera el id_solicitud_aprobada sin cerrar la transacción
 
-    flash(f'Solicitud #{id} aceptada y autorizada', 'success')
+        # 3. Crear el proyecto formal amarrado a la aprobación
+        nuevo_proyecto = Proyecto(
+            id_solicitud_aprobada=aprobacion.id_solicitud_aprobada,
+            id_administrador_autorizante=session.get('user_id'),
+            usuario_sistema_creado=f"usr_{solicitud.id_solicitud}", # Nombre de usuario para el cluster
+            acceso_nodos_fisicos=solicitud.acceso_nodos,
+            requiere_maquina_virtual=solicitud.maquina_virtual,
+            observaciones=solicitud.observaciones
+        )
+        db.session.add(nuevo_proyecto)
+
+        # 4. Crear la notificación para el alumno/investigador
+        notif = Notificacion(
+            id_usuario_destino=solicitud.id_usuario_solicitante,
+            mensaje=f"Tu solicitud para '{solicitud.nombre_proyecto}' ha sido ACEPTADA y se ha creado el proyecto.",
+            tipo='ESTADO'
+        )
+        db.session.add(notif)
+
+        # Guardamos todo en la base de datos de forma atómica
+        db.session.commit()
+        flash(f'Solicitud #{id} aceptada. Registros creados en solicitudes_aprobadas y proyectos.', 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error en la base de datos al procesar la aprobación: {str(e)}', 'danger')
+
     return redirect(url_for('dashboard'))
 
 @app.route('/solicitud/<int:id>/rechazar')
@@ -496,18 +604,21 @@ def solicitud_pdf(id):
 def proyectos():
     if 'user_id' not in session:
         return redirect(url_for('index'))
-    
+
     is_admin = session.get('is_admin', False)
+
+    # Consulta relacional real usando JOINs
+    proyectos_reales = db.session.query(Proyecto).join(SolicitudAprobada).join(Solicitud).all()
     
-    # Obtener proyectos reales (solicitudes aceptadas)
-    accepted_solicitudes = Solicitud.query.filter_by(estado='ACEPTADA').all()
     db_proyectos = []
-    for s in accepted_solicitudes:
-        # Lógica de finalización automática basada en la fecha
+    for p in proyectos_reales:
+        # Recuperamos la solicitud original escalando por las relaciones del ORM
+        s = p.solicitud_aprobada.solicitud 
+        
         estado_mostrar = 'Activo'
         if s.fecha_finalizacion_estimada and s.fecha_finalizacion_estimada < datetime.now().date():
             estado_mostrar = 'Finalizado'
-            
+
         db_proyectos.append({
             'id': s.id_solicitud,
             'nombre': s.nombre_proyecto,
@@ -517,7 +628,9 @@ def proyectos():
             'fecha_fin': s.fecha_finalizacion_estimada.strftime('%Y-%m-%d') if s.fecha_finalizacion_estimada else 'N/A'
         })
 
-    return render_template('proyectos.html', is_admin=is_admin, proyectos=db_proyectos)
+    user_id = session.get('user_id')
+    unread_count, unread_notifs = get_unread_notifications(user_id)
+    return render_template('proyectos.html', is_admin=is_admin, proyectos=db_proyectos, unread_count=unread_count, unread_notifs=unread_notifs)
 
 @app.route('/recursos')
 def recursos():
@@ -525,9 +638,11 @@ def recursos():
         return redirect(url_for('index'))
     
     is_admin = session.get('is_admin', False)
-    user = Usuario.query.get(session['user_id'])
+    user_id = session.get('user_id')
+    user = Usuario.query.get(user_id)
     ssh_config = get_user_ssh_config(user.correo_electronico) if user else None
     
+    # Valores por defecto (evitan división por cero)
     recursos_data = {
         'nodos': [
             {'nombre': 'nodo-01', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline'},
@@ -535,11 +650,11 @@ def recursos():
             {'nombre': 'nodo-03', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline'},
             {'nombre': 'nodo-gpu-01', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline'}
         ],
-        'total_cpu': 0,
+        'total_cpu': 1,
         'uso_cpu': 0,
-        'total_ram': 0,
+        'total_ram': 1,
         'uso_ram': 0,
-        'total_gpu': 0,
+        'total_gpu': 1,
         'uso_gpu': 0
     }
     
@@ -570,22 +685,33 @@ def recursos():
             stdin, stdout, stderr = ssh.exec_command("nproc", timeout=10)
             total_cpu = int(stdout.read().decode().strip() or 1)
             
-            # Obtener uptime de nodos
+            # Obtener hostname del nodo
             stdin, stdout, stderr = ssh.exec_command("hostname", timeout=10)
             hostname = stdout.read().decode().strip()
             
             ssh.close()
             
-            # Asignar el uso real al primer nodo (o al nodo detectado)
+            # Distribuir la carga entre los nodos de forma realista
+            # Si el hostname coincide con algún nodo, usamos datos reales; si no, 
+            # asignamos los datos reales al primer nodo y simulamos variación en los demás
+            uso_ram_porcentaje = int(uso_ram / max(total_ram, 1) * 100)
+            
+            asignado = False
             for nodo in recursos_data['nodos']:
-                if nodo['nombre'] == f'nodo-{hostname[-2:]}' or nodo['nombre'] == hostname:
-                    nodo['cpu_uso'] = int(uso_cpu_porcentaje)
-                    nodo['ram_uso'] = int(uso_ram / max(total_ram, 1) * 100)
+                if hostname and (nodo['nombre'] == hostname or nodo['nombre'].endswith(hostname[-2:])):
+                    nodo['cpu_uso'] = min(int(uso_cpu_porcentaje), 100)
+                    nodo['ram_uso'] = min(uso_ram_porcentaje, 100)
                     nodo['estado'] = 'Online'
-                    break
-            else:
-                recursos_data['nodos'][0]['cpu_uso'] = int(uso_cpu_porcentaje)
-                recursos_data['nodos'][0]['ram_uso'] = int(uso_ram / max(total_ram, 1) * 100)
+                    asignado = True
+                else:
+                    # Variación simulada para los demás nodos basada en datos reales
+                    nodo['cpu_uso'] = min(max(0, int(uso_cpu_porcentaje) + (-10 + (ord(nodo['nombre'][-1]) % 21))), 100)
+                    nodo['ram_uso'] = min(max(0, uso_ram_porcentaje + (-5 + (ord(nodo['nombre'][-1]) % 11))), 100)
+                    nodo['estado'] = 'Online' if int(uso_cpu_porcentaje) > 0 or uso_ram_porcentaje > 0 else 'Offline'
+            
+            if not asignado and int(uso_cpu_porcentaje) > 0:
+                recursos_data['nodos'][0]['cpu_uso'] = min(int(uso_cpu_porcentaje), 100)
+                recursos_data['nodos'][0]['ram_uso'] = min(uso_ram_porcentaje, 100)
                 recursos_data['nodos'][0]['estado'] = 'Online'
             
             recursos_data['total_cpu'] = total_cpu
@@ -598,29 +724,44 @@ def recursos():
         except Exception:
             pass  # Si falla SSH, quedan los valores por defecto
     
-    return render_template('recursos.html', is_admin=is_admin, recursos=recursos_data)
+    # Notificaciones sin leer
+    unread_count, unread_notifs = get_unread_notifications(user_id)
+    
+    return render_template('recursos.html', is_admin=is_admin, recursos=recursos_data, unread_count=unread_count, unread_notifs=unread_notifs)
+
+from flask import session, redirect, url_for, abort  # Asegúrate de importar abort si no lo tienes
 
 @app.route('/analisis-predictivo', methods=['GET', 'POST'])
 def analisis_predictivo():
+    # 1. Verificar si el usuario está logueado
     if 'user_id' not in session:
         return redirect(url_for('index'))
 
+    # 2. Control de Acceso: Verificar si es Admin por rol o por correo específico
     is_admin = session.get('is_admin', False)
     user = Usuario.query.get(session['user_id'])
-    ssh_config = get_user_ssh_config(user.correo_electronico) if user else None
 
+    if not is_admin and (user and user.correo_electronico != 'admin@nidtec.com'):
+        abort(403)  # Lanza un error HTTP 403 Prohibido
+
+    # 3. Inicialización y simulación de la infraestructura base (Nodos C1 a C4)
     recursos_data = {
         'nodos': [
-            {'nombre': 'nodo-01', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline'},
-            {'nombre': 'nodo-02', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline'},
-            {'nombre': 'nodo-03', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline'},
-            {'nombre': 'nodo-gpu-01', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline'}
+            {'nombre': 'C1', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline', 'tipo': 'compartido'},
+            {'nombre': 'C2', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline', 'tipo': 'compartido'},
+            {'nombre': 'C3', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline', 'tipo': 'compartido'},
+            {'nombre': 'C4', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline', 'tipo': 'exclusivo'}
         ],
-        'total_cpu': 64, 'uso_cpu': 32,
-        'total_ram': 128, 'uso_ram': 64,
-        'total_gpu': 4, 'uso_gpu': 1
+        'total_cpu': 128,  # 32 cores x 4 nodos
+        'uso_cpu': 32,
+        'total_ram': 512,  # 128 GB x 4 nodos
+        'uso_ram': 128,
+        'total_gpu': 4,    # 1 GPU x 4 nodos
+        'uso_gpu': 1
     }
 
+    # 4. Conexión SSH para recopilar métricas en tiempo real del clúster
+    ssh_config = get_user_ssh_config(user.correo_electronico) if user else None
     if ssh_config:
         try:
             ssh = paramiko.SSHClient()
@@ -631,21 +772,27 @@ def analisis_predictivo():
                 password=ssh_config['password'],
                 timeout=10
             )
+            
+            # Comandos del sistema
             stdin, stdout, stderr = ssh.exec_command("top -bn1 | grep 'Cpu(s)' | awk '{print $2}'", timeout=10)
             cpu_str = stdout.read().decode().strip()
             uso_cpu_porcentaje = float(cpu_str) if cpu_str else 0
+            
             stdin, stdout, stderr = ssh.exec_command("free -m | awk 'NR==2{print $3, $2}'", timeout=10)
             ram_line = stdout.read().decode().strip().split()
             uso_ram = int(ram_line[0]) if len(ram_line) > 0 else 0
             total_ram = int(ram_line[1]) if len(ram_line) > 1 else 1
+            
             stdin, stdout, stderr = ssh.exec_command("nproc", timeout=10)
             total_cpu = int(stdout.read().decode().strip() or 1)
+            
             stdin, stdout, stderr = ssh.exec_command("hostname", timeout=10)
             hostname = stdout.read().decode().strip()
             ssh.close()
 
+            # Actualizar dinámicamente el nodo desde el que responde SSH
             for nodo in recursos_data['nodos']:
-                if nodo['nombre'] == f'nodo-{hostname[-2:]}' or nodo['nombre'] == hostname:
+                if nodo['nombre'].lower() == hostname.lower() or hostname[-2:] in nodo['nombre']:
                     nodo['cpu_uso'] = int(uso_cpu_porcentaje)
                     nodo['ram_uso'] = int(uso_ram / max(total_ram, 1) * 100)
                     nodo['estado'] = 'Online'
@@ -655,19 +802,22 @@ def analisis_predictivo():
                 recursos_data['nodos'][0]['ram_uso'] = int(uso_ram / max(total_ram, 1) * 100)
                 recursos_data['nodos'][0]['estado'] = 'Online'
 
+            # Ajuste de totales dinámicos devueltos por el servidor central
             recursos_data['total_cpu'] = total_cpu
             recursos_data['uso_cpu'] = int(total_cpu * uso_cpu_porcentaje / 100)
-            recursos_data['total_ram'] = total_ram
-            recursos_data['uso_ram'] = uso_ram
-            recursos_data['total_gpu'] = 4
-            recursos_data['uso_gpu'] = 1
+            recursos_data['total_ram'] = int(total_ram / 1024)  # Convertir a GB aproximado
+            recursos_data['uso_ram'] = int(uso_ram / 1024)
+            
         except Exception:
+            # Si el SSH falla, se mantienen los valores por defecto configurados en 'recursos_data'
             pass
 
+    # 5. Parámetros del formulario web
     tasa = request.form.get('tasa', 5, type=float)
     meses = request.form.get('meses', 12, type=int)
     puertos = request.form.get('puertos', 24, type=int)
 
+    # Variables de consumo global
     cpu_total = recursos_data['total_cpu']
     cpu_uso = recursos_data['uso_cpu']
     ram_total = recursos_data['total_ram']
@@ -679,6 +829,7 @@ def analisis_predictivo():
     ram_pct = (ram_uso / ram_total * 100) if ram_total else 0
     gpu_pct = (gpu_uso / gpu_total * 100) if gpu_total else 0
 
+    # 6. Cálculo de Proyecciones de Crecimiento
     growth_factor = 1 + (tasa / 100)
     proyecciones = []
     for mes in range(1, meses + 1):
@@ -701,20 +852,20 @@ def analisis_predictivo():
     mes_agotar_ram = next((p['mes'] for p in proyecciones if p['ram_pct'] >= 100), None)
     mes_agotar_gpu = next((p['mes'] for p in proyecciones if p['gpu_pct'] >= 100), None)
 
+    # 7. Planificación y cálculo de déficits físicos
     num_nodos = len(recursos_data['nodos'])
-    cpu_por_nodo = max(1, cpu_total // max(num_nodos, 1))
-    ram_por_nodo = max(1, ram_total // max(num_nodos, 1))
-    num_nodos_gpu = max(1, sum(1 for n in recursos_data['nodos'] if 'gpu' in n['nombre']))
-    gpu_por_nodo = max(1, gpu_total // num_nodos_gpu) if gpu_total > 0 else 0
+    cpu_por_nodo = 32   # Especificación rígida dada por el hardware
+    ram_por_nodo = 128  # Especificación rígida dada por el hardware
+    gpu_por_nodo = 1    # Especificación rígida dada por el hardware
 
     factor_12m = growth_factor ** min(meses, 12)
     cpu_deficit = max(0, cpu_uso * factor_12m - cpu_total)
     ram_deficit = max(0, ram_uso * factor_12m - ram_total)
     gpu_deficit = max(0, gpu_uso * factor_12m - gpu_total)
 
-    nodos_cpu = math.ceil(cpu_deficit / cpu_por_nodo) if cpu_por_nodo > 0 else 0
-    nodos_ram = math.ceil(ram_deficit / ram_por_nodo) if ram_por_nodo > 0 else 0
-    nodos_gpu = math.ceil(gpu_deficit / gpu_por_nodo) if gpu_por_nodo > 0 else 0
+    nodos_cpu = math.ceil(cpu_deficit / cpu_por_nodo)
+    nodos_ram = math.ceil(ram_deficit / ram_por_nodo)
+    nodos_gpu = math.ceil(gpu_deficit / gpu_por_nodo)
     total_nuevos = max(nodos_cpu, nodos_ram, nodos_gpu)
     total_final = num_nodos + total_nuevos
 
@@ -722,6 +873,47 @@ def analisis_predictivo():
     switches_req = max(1, math.ceil(total_final / puertos))
     puertos_libres = switches_req * puertos - total_final
 
+    # --- [8. SIMULACIÓN DE ESTIMACIÓN DE PLANIFICACIÓN SLURM] ---
+    req_cpu = request.form.get('req_cpu', 0, type=int)
+    req_ram = request.form.get('req_ram', 0, type=int)
+    req_gpu = request.form.get('req_gpu', 0, type=int)
+    req_exclusivo = request.form.get('req_exclusivo', 'false') == 'true'
+
+    slurm_estado = 'ejecucion_inmediata'
+    slurm_motivo = ''
+    slurm_nodo_sugerido = 'Ninguno'
+    slurm_tiempo_espera = None
+
+    if req_cpu > 0 or req_ram > 0 or req_gpu > 0:
+        # LÍMITES FÍSICOS INDIVIDUALES DE LA ARQUITECTURA (32 CPUs, 128 GB RAM, 1 GPU)
+        if req_cpu > 32 or req_ram > 128 or req_gpu > 1:
+            slurm_estado = 'sin_recursos'
+            slurm_motivo = (
+                f"La solicitud excede los límites físicos unitarios del clúster "
+                f"(Solicitado: {req_cpu} Cores, {req_ram} GB RAM, {req_gpu} GPU). "
+                f"Código de error SLURM: REASON_CAPACITY (PartitionNodeLimit)."
+            )
+        else:
+            # Calcular remanente real del clúster en base a mediciones de uso actuales
+            cpu_libres_global = max(0, cpu_total - cpu_uso)
+            ram_libre_global = max(0, ram_total - ram_uso)
+            gpu_libres_global = max(0, gpu_total - gpu_uso)
+
+            # ESCENARIO: TRABAJO VIABLE PERO RECURSOS COMPROMETIDOS/OCUPADOS
+            if req_cpu > cpu_libres_global or req_ram > ram_libre_global or req_gpu > gpu_libres_global:
+                slurm_estado = 'en_cola'
+                slurm_motivo = (
+                    "El trabajo es viable en la infraestructura, pero los slots requeridos "
+                    "están ocupados por tareas activas. Código SLURM: STATE_PENDING (Resources)."
+                )
+                slurm_tiempo_espera = "00:35:40"  # Tiempo simulado de cola
+                slurm_nodo_sugerido = "C4 (Exclusivo)" if req_exclusivo else "C1, C2 o C3 (Compartidos)"
+            else:
+                # Todo Ok -> Ejecución inmediata
+                slurm_estado = 'ejecucion_inmediata'
+                slurm_nodo_sugerido = "C4" if req_exclusivo else "C1"
+
+    # 9. Estructurar el diccionario unificado final para Jinja2
     prediccion = {
         'proyecciones': proyecciones,
         'agotamiento': {
@@ -759,29 +951,50 @@ def analisis_predictivo():
         },
         'tasa': tasa,
         'meses': meses,
+        'slurm': {
+            'estado': slurm_estado,
+            'motivo': slurm_motivo,
+            'nodo_sugerido': slurm_nodo_sugerido,
+            'tiempo_espera': slurm_tiempo_espera,
+            'req_cpu': req_cpu,
+            'req_ram': req_ram,
+            'req_gpu': req_gpu,
+            'req_exclusivo': req_exclusivo
+        }
     }
 
-    return render_template('analisis_predictivo.html', is_admin=is_admin, prediccion=prediccion)
-
+    user_id = session.get('user_id')
+    unread_count, unread_notifs = get_unread_notifications(user_id)
+    return render_template(
+        'analisis_predictivo.html', 
+        is_admin=is_admin, 
+        prediccion=prediccion, 
+        unread_count=unread_count, 
+        unread_notifs=unread_notifs
+    )
 
 @app.route('/terminal')
 def terminal():
     if 'user_id' not in session:
         return redirect(url_for('index'))
     is_admin = session.get('is_admin', False)
-    user = Usuario.query.get(session['user_id'])
+    user_id = session.get('user_id')
+    user = Usuario.query.get(user_id)
     ssh_config = get_user_ssh_config(user.correo_electronico) if user else None
-    return render_template('terminal.html', is_admin=is_admin, ssh_config=ssh_config)
+    unread_count, unread_notifs = get_unread_notifications(user_id)
+    return render_template('terminal.html', is_admin=is_admin, ssh_config=ssh_config, unread_count=unread_count, unread_notifs=unread_notifs)
 
 @app.route('/perfil')
 def perfil():
     if 'user_id' not in session:
         return redirect(url_for('login'))
         
-    user = Usuario.query.get(session['user_id'])
+    user_id = session.get('user_id')
+    user = Usuario.query.get(user_id)
+    unread_count, unread_notifs = get_unread_notifications(user_id)
     is_admin = session.get('is_admin', False)
     
-    return render_template('perfil.html', user=user, is_admin=is_admin)
+    return render_template('perfil.html', user=user, is_admin=is_admin, unread_count=unread_count, unread_notifs=unread_notifs)
 
 @app.route('/actualizar_perfil', methods=['POST'])
 def actualizar_perfil():
@@ -820,7 +1033,9 @@ def lista_usuarios():
             'foto_perfil': u.foto_perfil
         })
     
-    return render_template('usuarios.html', usuarios=db_usuarios, is_admin=True)
+    user_id = session.get('user_id')
+    unread_count, unread_notifs = get_unread_notifications(user_id)
+    return render_template('usuarios.html', usuarios=db_usuarios, is_admin=True, unread_count=unread_count, unread_notifs=unread_notifs)
 
 @app.route('/promover/<int:id>')
 def promover_usuario(id):
@@ -899,6 +1114,13 @@ SSH_CREDENTIALS = {
 
 def get_user_ssh_config(user_email):
     return SSH_CREDENTIALS.get(user_email)
+
+
+def get_unread_notifications(user_id):
+    """Retorna (unread_count, unread_notifs) para un usuario dado."""
+    count = Notificacion.query.filter_by(id_usuario_destino=user_id, leida=False).count()
+    notifs = Notificacion.query.filter_by(id_usuario_destino=user_id, leida=False).order_by(Notificacion.fecha.desc()).limit(5).all()
+    return count, notifs
 
 @app.route('/terminal/exec', methods=['POST'])
 def terminal_exec():
@@ -992,11 +1214,18 @@ def no_cache(response):
 
 @app.route('/logout')
 def logout():
+    # 1. Limpiamos la sesión del usuario PRIMERO en el servidor
+    session.clear()
+
+    # 2. Construimos la respuesta redirigiendo a la Landing Page ('index')
+    # Esto cargará tu index.html institucional de manera limpia
     resp = make_response(redirect(url_for('index')))
-    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+
+    # 3. Forzamos la destrucción de la caché en el navegador por seguridad
+    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0, post-check=0, pre-check=0'
     resp.headers['Pragma'] = 'no-cache'
     resp.headers['Expires'] = '0'
-    session.clear()
+
     return resp
 
 @app.route('/notificaciones/limpiar')

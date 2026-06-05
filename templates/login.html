@@ -23,6 +23,12 @@
             max-width: 450px;
             width: 90%;
         }
+
+        .captcha-box {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(5px);
+        }
     </style>
     <script src="{{ url_for('static', filename='js/darkmode.js') }}"></script>
 </head>
@@ -37,7 +43,7 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         {% for category, message in messages %}
-        <div class="alert alert-{{ category }} glass-card border-0 mb-4 py-2" role="alert">
+        <div class="alert alert-{{ category }} glass-card border-0 mb-4 py-2 small" role="alert">
             {{ message }}
         </div>
         {% endfor %}
@@ -50,11 +56,39 @@
                 <input type="email" name="correo" class="form-control form-control-premium"
                     placeholder="usuario@ejemplo.com" required>
             </div>
-            <div class="mb-5">
+
+            <div class="mb-2">
                 <label class="form-label fw-bold">Contraseña</label>
                 <input type="password" name="password" class="form-control form-control-premium" placeholder="••••••••"
                     required>
             </div>
+
+            <div class="text-end mb-4">
+                <a href="/recuperar_password" class="small text-decoration-none text-muted fw-medium border-bottom border-secondary border-opacity-25 pb-1">
+                    ¿Olvidaste tu contraseña?
+                </a>
+            </div>
+        
+            <div class="mb-4 p-3 rounded captcha-box shadow-sm" style="background: rgba(0, 0, 0, 0.03); border: 1px solid rgba(0, 0, 0, 0.1);">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="small fw-semibold text-secondary user-select-none">
+                        <i class="fas fa-robot me-1"></i> Verificación de Seguridad
+                    </span>
+                    <span class="x-small text-muted text-uppercase fw-bold" style="letter-spacing: 0.5px; font-size: 9px;">No soy un robot</span>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-secondary bg-opacity-15 px-3 py-2 rounded text-dark fw-bold border border-secondary border-opacity-25 user-select-none" style="font-size: 1.1rem; min-width: 90px; text-align: center;">
+                        {{ num1 }} + {{ num2 }} =
+                    </div>
+                    <div class="flex-grow-1">
+                        <input type="number" name="captcha_answer" class="form-control form-control-premium text-center fw-bold"
+                               placeholder="Resultado" required autocomplete="off" style="color: #212529 !important;">
+                    </div>
+                </div>
+            </div>
+
+
+
             <button type="submit" class="btn btn-premium w-100 py-3">Ingresar al Sistema</button>
         </form>
 

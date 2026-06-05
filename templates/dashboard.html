@@ -32,9 +32,13 @@
             <a href="/recursos" class="navbar-link">
                 <i class="fas fa-server"></i> Recursos
             </a>
+
+            {% if is_admin %}
             <a href="/analisis-predictivo" class="navbar-link">
                 <i class="fas fa-chart-bar"></i> Análisis
             </a>
+            {% endif %}
+
             <a href="/solicitud" class="navbar-link">
                 <i class="fas fa-file-alt"></i> Solicitud
             </a>
@@ -120,132 +124,133 @@
         {% endwith %}
 
         <div class="row g-4">
-            <!-- Main Content: Requests Table -->
-            <div class="col-lg-9">
+            <div class="col-12 col-lg-8 col-xl-8 col-xxl-9">
                 <div class="glass-card p-0 shadow-sm">
                     <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0 custom-table">
-                    <thead>
-                        <tr>
-                            <th class="ps-4">Solicitud</th>
-                            <th>Investigador / Usuario</th>
-                            <th>Proyecto / Tutor</th>
-                            <th>Periodo de Uso</th>
-                            <th>Estado</th>
-                            <th class="text-end pe-4">Gestión</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for s in solicitudes %}
-                        <tr class="table-row-hover">
-                            <td class="ps-4">
-                                <span class="id-badge">#{{ s.id_solicitud }}</span>
-                            </td>
-                            <td>
-                                <div class="d-flex align-items-center">
-                                    <img src="https://ui-avatars.com/api/?name={{ s.usuario.nombre_apellido }}&background=random&size=40"
-                                        class="rounded-circle border border-2 border-primary border-opacity-25 me-3"
-                                        alt="Avatar">
-                                    <div class="d-flex flex-column">
-                                        <span class="fw-bold text-dark">{{ s.nombre_solicitante if s.nombre_solicitante
-                                            else s.usuario.nombre_apellido }}</span>
-                                        <span class="text-muted text-xs">{{ s.correo_solicitante if s.correo_solicitante
-                                            else s.usuario.correo_electronico }}</span>
-                                    </div>
-                                    {% if is_admin %}
-                                    {% if not s.usuario.es_administrador %}
-                                    <a href="{{ url_for('promover_usuario', id=s.usuario.id_usuario) }}"
-                                        class="ms-3 btn btn-outline-primary btn-sm rounded-pill py-0 px-2 btn-promote-xs"
-                                        title="Promover a Admin">
-                                        <i class="fas fa-crown"></i>
-                                    </a>
-                                    {% elif s.usuario.id_usuario != session['user_id'] %}
-                                    <a href="{{ url_for('degradar_usuario', id=s.usuario.id_usuario) }}"
-                                        class="ms-3 btn btn-outline-danger btn-sm rounded-pill py-0 px-2 btn-promote-xs"
-                                        title="Remover Admin">
-                                        <i class="fas fa-user-minus"></i>
-                                    </a>
-                                    {% endif %}
-                                    {% endif %}
-                                </div>
-                            </td>
-                            <td>
-                                <div class="d-flex flex-column">
-                                    <span class="text-dark fw-semibold text-truncate project-name-truncate"
-                                        title="{{ s.nombre_proyecto }}">{{ s.nombre_proyecto }}</span>
-                                    <span class="text-muted text-xs"><i class="fas fa-chalkboard-teacher me-1"></i> {{
-                                        s.profesor_tutor }}</span>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="date-container">
-                                    <div class="text-dark fw-medium"><i class="far fa-calendar-alt me-1"></i> {{
-                                        s.fecha_inicio.strftime('%d %b, %Y') }}</div>
-                                    <div class="text-muted mt-1 text-xs"><i class="fas fa-clock me-1"></i> Hasta {{
-                                        s.fecha_finalizacion_estimada.strftime('%d %b, %Y') }}</div>
-                                </div>
-                            </td>
-                            <td>
-                                {% if s.estado == 'PENDIENTE' %}
-                                <div class="status-pill status-pending">
-                                    <span class="dot"></span> Pendiente
-                                </div>
-                                {% elif s.estado == 'ACEPTADA' %}
-                                <div class="status-pill status-accepted">
-                                    <span class="dot"></span> Autorizada
-                                </div>
-                                {% elif s.estado == 'FINALIZADO' %}
-                                <div class="status-pill status-finalized">
-                                    <span class="dot"></span> Finalizada
-                                </div>
+                        <table class="table table-hover align-middle mb-0 custom-table">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4">Solicitud</th>
+                                    <th>Investigador / Usuario</th>
+                                    <th>Proyecto / Tutor</th>
+                                    <th>Periodo de Uso</th>
+                                    <th>Estado</th>
+                                    <th class="text-end pe-4">Gestión</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for s in solicitudes %}
+                                <tr class="table-row-hover">
+                                    <td class="ps-4">
+                                        <span class="id-badge">#{{ s.id_solicitud }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <img src="https://ui-avatars.com/api/?name={{ s.usuario.nombre_apellido }}&background=random&size=40"
+                                                class="rounded-circle border border-2 border-primary border-opacity-25 me-3"
+                                                alt="Avatar">
+                                            <div class="d-flex flex-column">
+                                                <span class="fw-bold text-dark">{{ s.nombre_solicitante if s.nombre_solicitante
+                                                    else s.usuario.nombre_apellido }}</span>
+                                                <span class="text-muted text-xs">{{ s.correo_solicitante if s.correo_solicitante
+                                                    else s.usuario.correo_electronico }}</span>
+                                            </div>
+                                            {% if is_admin %}
+                                            {% if not s.usuario.es_administrador %}
+                                            <a href="{{ url_for('promover_usuario', id=s.usuario.id_usuario) }}"
+                                                class="ms-3 btn btn-outline-primary btn-sm rounded-pill py-0 px-2 btn-promote-xs"
+                                                title="Promover a Admin">
+                                                <i class="fas fa-crown"></i>
+                                            </a>
+                                            {% elif s.usuario.id_usuario != session['user_id'] %}
+                                            <a href="{{ url_for('degradar_usuario', id=s.usuario.id_usuario) }}"
+                                                class="ms-3 btn btn-outline-danger btn-sm rounded-pill py-0 px-2 btn-promote-xs"
+                                                title="Remover Admin">
+                                                <i class="fas fa-user-minus"></i>
+                                            </a>
+                                            {% endif %}
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex flex-column">
+                                            <span class="text-dark fw-semibold text-truncate project-name-truncate"
+                                                title="{{ s.nombre_proyecto }}">{{ s.nombre_proyecto }}</span>
+                                            <span class="text-muted text-xs"><i class="fas fa-chalkboard-teacher me-1"></i> {{
+                                                s.profesor_tutor }}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="date-container">
+                                            <div class="text-dark fw-medium"><i class="far fa-calendar-alt me-1"></i> {{
+                                                s.fecha_inicio.strftime('%d %b, %Y') }}</div>
+                                            <div class="text-muted mt-1 text-xs"><i class="fas fa-clock me-1"></i> Hasta {{
+                                                s.fecha_finalizacion_estimada.strftime('%d %b, %Y') }}</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if s.estado == 'PENDIENTE' %}
+                                        <div class="status-pill status-pending">
+                                            <span class="dot"></span> Pendiente
+                                        </div>
+                                        {% elif s.estado == 'ACEPTADA' %}
+                                        <div class="status-pill status-accepted">
+                                            <span class="dot"></span> Autorizada
+                                        </div>
+                                        {% elif s.estado == 'FINALIZADO' %}
+                                        <div class="status-pill status-finalized">
+                                            <span class="dot"></span> Finalizada
+                                        </div>
+                                        {% else %}
+                                        <div class="status-pill status-rejected">
+                                            <span class="dot"></span> Rechazada
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <div class="d-flex justify-content-end align-items-center gap-2">
+                                            {% if is_admin %}
+                                            {% if s.estado == 'PENDIENTE' %}
+                                            <button class="btn btn-success-soft btn-sm" data-bs-toggle="modal"
+                                                data-bs-target="#modalAprobar{{ s.id_solicitud }}" title="Aprobar">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                            <a href="{{ url_for('rechazar_solicitud', id=s.id_solicitud) }}"
+                                                class="btn btn-warning-soft btn-sm" title="Rechazar">
+                                                <i class="fas fa-times"></i>
+                                            </a>
+                                            {% endif %}
+                                            <a href="{{ url_for('borrar_solicitud', id=s.id_solicitud) }}"
+                                                class="btn btn-danger-soft btn-sm" title="Borrar Permanentemente"
+                                                onclick="return confirm('¿Está seguro de que desea eliminar permanentemente esta solicitud #{{ s.id_solicitud }}?')">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </a>
+                                            {% endif %}
+                                            {% if s.estado == 'ACEPTADA' and s.acceso_nodos %}
+                                            <a href="/terminal" class="btn btn-dark btn-sm" title="Abrir Terminal SSH">
+                                                <i class="fas fa-terminal me-1"></i> Terminal
+                                            </a>
+                                            {% endif %}
+                                            <button class="btn btn-outline-primary btn-sm border-0 bg-primary bg-opacity-10"
+                                                data-bs-toggle="modal" data-bs-target="#modalDetalles{{ s.id_solicitud }}"
+                                                title="Ver Detalles Completos">
+                                                <i class="fas fa-chevron-right"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
                                 {% else %}
-                                <div class="status-pill status-rejected">
-                                    <span class="dot"></span> Rechazada
-                                </div>
-                                {% endif %}
-                            </td>
-                            <td class="text-end pe-4">
-                                <div class="d-flex justify-content-end align-items-center gap-2">
-                                    {% if is_admin %}
-                                    {% if s.estado == 'PENDIENTE' %}
-                                    <button class="btn btn-success-soft btn-sm" data-bs-toggle="modal"
-                                        data-bs-target="#modalAprobar{{ s.id_solicitud }}" title="Aprobar">
-                                        <i class="fas fa-check"></i>
-                                    </button>
-                                    <a href="{{ url_for('rechazar_solicitud', id=s.id_solicitud) }}"
-                                        class="btn btn-warning-soft btn-sm" title="Rechazar">
-                                        <i class="fas fa-times"></i>
-                                    </a>
-                                    {% endif %}
-                                    <a href="{{ url_for('borrar_solicitud', id=s.id_solicitud) }}"
-                                        class="btn btn-danger-soft btn-sm" title="Borrar Permanentemente"
-                                        onclick="return confirm('¿Está seguro de que desea eliminar permanentemente esta solicitud #{{ s.id_solicitud }}?')">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </a>
-                                    {% endif %}
-                                    {% if s.estado == 'ACEPTADA' and s.acceso_nodos %}
-                                    <a href="/terminal" class="btn btn-dark btn-sm" title="Abrir Terminal SSH">
-                                        <i class="fas fa-terminal me-1"></i> Terminal
-                                    </a>
-                                    {% endif %}
-                                    <button class="btn btn-outline-primary btn-sm border-0 bg-primary bg-opacity-10"
-                                        data-bs-toggle="modal" data-bs-target="#modalDetalles{{ s.id_solicitud }}"
-                                        title="Ver Detalles Completos">
-                                        <i class="fas fa-chevron-right"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="6" class="text-center py-5 text-muted">
-                                <i class="fas fa-folder-open fa-3x mb-3"></i>
-                                <p>No hay solicitudes registradas.</p>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                                <tr>
+                                    <td colspan="6" class="text-center py-5 text-muted">
+                                        <i class="fas fa-folder-open fa-3x mb-3"></i>
+                                        <p>No hay solicitudes registradas.</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div> </div> </div> <div class="col-12 col-lg-4 col-xl-4 col-xxl-3">
+                </div>
             </div>
         </div>
     </div>

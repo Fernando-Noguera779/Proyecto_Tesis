@@ -32,9 +32,11 @@
             <a href="/recursos" class="navbar-link">
                 <i class="fas fa-server"></i> Recursos
             </a>
+            {% if is_admin %}
             <a href="/analisis-predictivo" class="navbar-link">
                 <i class="fas fa-chart-bar"></i> Análisis
             </a>
+            {% endif %}
             <a href="/solicitud" class="navbar-link active">
                 <i class="fas fa-file-alt"></i> Solicitud
             </a>
@@ -112,7 +114,6 @@
 
         <div class="glass-card">
             <form method="POST">
-                <!-- 1. Fecha de solicitud -->
                 <div class="row g-4 mb-4">
                     <div class="col-md-4">
                         <label for="fecha_solicitud" class="form-label fw-bold">Fecha de Solicitud</label>
@@ -127,7 +128,6 @@
                     </div>
                 </div>
 
-                <!-- 2. Nombres y Apellidos -->
                 <div class="row g-4 mb-4">
                     <div class="col-md-12">
                         <label for="nombre_solicitante" class="form-label fw-bold">Nombres y Apellidos</label>
@@ -137,7 +137,6 @@
                     </div>
                 </div>
 
-                <!-- 3. Correo electrónico -->
                 <div class="row g-4 mb-4">
                     <div class="col-md-12">
                         <label for="correo_solicitante" class="form-label fw-bold">Correo Electrónico</label>
@@ -149,7 +148,6 @@
 
                 <hr class="border-secondary opacity-25 my-4">
 
-                <!-- 4 & 5. Facultad y Carrera -->
                 <div class="row g-4 mb-4">
                     <div class="col-md-6">
                         <label for="facultad" class="form-label fw-bold">Facultad</label>
@@ -163,7 +161,6 @@
                     </div>
                 </div>
 
-                <!-- 6. Asignatura/Módulo -->
                 <div class="row g-4 mb-4">
                     <div class="col-md-12">
                         <label for="asignatura" class="form-label fw-bold">Asignatura/Módulo</label>
@@ -172,7 +169,6 @@
                     </div>
                 </div>
 
-                <!-- 7. Profesor Tutor -->
                 <div class="row g-4 mb-4">
                     <div class="col-md-12">
                         <label for="tutor" class="form-label fw-bold">Profesor Tutor</label>
@@ -181,7 +177,6 @@
                     </div>
                 </div>
 
-                <!-- 8. Fecha de inicio | Fecha Finalización (estimada) -->
                 <div class="row g-4 mb-4">
                     <div class="col-md-6">
                         <label for="fecha_inicio" class="form-label fw-bold">Fecha de Inicio</label>
@@ -195,7 +190,6 @@
                     </div>
                 </div>
 
-                <!-- 9. Proyecto -->
                 <div class="row g-4 mb-4">
                     <div class="col-md-12">
                         <label for="proyecto" class="form-label fw-bold">Proyecto</label>
@@ -204,7 +198,6 @@
                     </div>
                 </div>
 
-                <!-- 10. Software -->
                 <div class="row g-4 mb-4">
                     <div class="col-md-12">
                         <label for="software" class="form-label fw-bold">Software</label>
@@ -213,7 +206,6 @@
                     </div>
                 </div>
 
-                <!-- 11. Observaciones -->
                 <div class="row g-4 mb-4">
                     <div class="col-md-12">
                         <label for="observaciones" class="form-label fw-bold">Observaciones</label>

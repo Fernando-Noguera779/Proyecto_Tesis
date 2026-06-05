@@ -48,6 +48,36 @@
             position: relative;
             height: 350px;
         }
+        
+        /* Pestañas de gráficos premium */
+        .nav-tabs .nav-link {
+            border-bottom: 2px solid transparent !important;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        .nav-tabs .nav-link.active {
+            border-bottom-color: var(--primary-color) !important;
+            opacity: 1 !important;
+            font-weight: 600;
+        }
+        .nav-tabs .nav-link:hover {
+            opacity: 1;
+        }
+        
+        /* Bloques de Cores de CPU */
+        .cpu-core-block {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .cpu-core-block:hover {
+            transform: scale(1.25);
+            z-index: 10;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 4px rgba(245,158,11,0.6); }
+            50% { transform: scale(1.15); box-shadow: 0 0 10px rgba(245,158,11,0.9); }
+            100% { transform: scale(1); box-shadow: 0 0 4px rgba(245,158,11,0.6); }
+        }
     </style>
 </head>
 
@@ -348,24 +378,48 @@
                     <form method="POST">
                         <input type="hidden" name="tasa" value="{{ prediccion.tasa }}">
                         <input type="hidden" name="meses" value="{{ prediccion.meses }}">
-                        <input type="hidden" name="puertos" value="{{ s.puertos_switch }}">
+                        <input type="hidden" name="puertos" value="{{ prediccion.switch.puertos_switch }}">
 
                         <div class="mb-3">
                             <label class="form-label small fw-bold">CPUs Requeridas (Cores)</label>
-                            <input type="number" min="0" max="128" name="req_cpu" value="{{ slurm.req_cpu }}" class="form-control form-control-premium" placeholder="Ej. 16" required>
+                            <input type="number" min="0" max="96" name="req_cpu" value="{{ prediccion.slurm.req_cpu }}" class="form-control form-control-premium" placeholder="Ej. 16" required>
+                            <div class="form-text x-small text-muted">Límites: Máx 32 cores para Mono-nodo, o 96 cores para Multi-nodo (MPI).</div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label small fw-bold">Memoria RAM Requerida (GB)</label>
-                            <input type="number" min="0" max="512" name="req_ram" value="{{ slurm.req_ram }}" class="form-control form-control-premium" placeholder="Ej. 64" required>
+                            <input type="number" min="0" max="384" name="req_ram" value="{{ prediccion.slurm.req_ram }}" class="form-control form-control-premium" placeholder="Ej. 64" required>
+                            <div class="form-text x-small text-muted">Límites: Máx 128 GB para Mono-nodo, o 384 GB para Multi-nodo (MPI).</div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label small fw-bold">GPUs Requeridas</label>
-                            <input type="number" min="0" max="4" name="req_gpu" value="{{ slurm.req_gpu }}" class="form-control form-control-premium" placeholder="Ej. 1" required>
+                            <input type="number" min="0" max="3" name="req_gpu" value="{{ prediccion.slurm.req_gpu }}" class="form-control form-control-premium" placeholder="Ej. 1" required>
+                            <div class="form-text x-small text-muted">Límites: Máx 1 GPU para Mono-nodo, o 3 GPUs para Multi-nodo (MPI).</div>
                         </div>
+                        
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label x-small fw-bold">Tiempo Límite (Horas)</label>
+                                <select name="req_time" class="form-select form-control-premium">
+                                    <option value="1" {% if prediccion.slurm.req_time == 1 %}selected{% endif %}>1 hora</option>
+                                    <option value="2" {% if prediccion.slurm.req_time == 2 or not prediccion.slurm.req_time %}selected{% endif %}>2 horas</option>
+                                    <option value="4" {% if prediccion.slurm.req_time == 4 %}selected{% endif %}>4 horas</option>
+                                    <option value="8" {% if prediccion.slurm.req_time == 8 %}selected{% endif %}>8 horas</option>
+                                    <option value="24" {% if prediccion.slurm.req_time == 24 %}selected{% endif %}>24 horas</option>
+                                </select>
+                            </div>
+                            <div class="col-6 d-flex align-items-end">
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="req_mpi" name="req_mpi" value="true" {% if prediccion.slurm.req_mpi %}checked{% endif %}>
+                                    <label class="form-check-label x-small fw-bold" for="req_mpi">Multi-nodo (MPI)</label>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="form-check form-switch mb-4">
-                            <input class="form-check-input" type="checkbox" role="switch" id="req_exclusivo" name="req_exclusivo" value="true" {% if slurm.req_exclusivo %}checked{% endif %}>
+                            <input class="form-check-input" type="checkbox" role="switch" id="req_exclusivo" name="req_exclusivo" value="true" {% if prediccion.slurm.req_exclusivo %}checked{% endif %} {% if prediccion.slurm.req_mpi %}disabled{% endif %}>
                             <label class="form-check-label small fw-bold" for="req_exclusivo">¿Solicitar Nodo Exclusivo? (Partición C4)</label>
                         </div>
+                        
                         <button type="submit" class="btn btn-premium w-100">
                             <i class="fas fa-tasks me-2"></i>Evaluar Cola de Trabajo
                         </button>
@@ -374,10 +428,10 @@
             </div>
 
             <div class="col-md-7">
-                <div class="glass-card h-100 pred-card {% if slurm.estado == 'ejecucion_inmediata' %}slurm-ready{% elif slurm.estado == 'en_cola' %}slurm-queue{% else %}slurm-error{% endif %}">
-                    <h5 class="fw-bold mb-3"><i class="fas fa-layer-group me-2"></i>Resultado del Planificador</h5>
+                <div class="glass-card h-100 pred-card {% if prediccion.slurm.estado == 'ejecucion_inmediata' %}slurm-ready{% elif prediccion.slurm.estado == 'en_cola' %}slurm-queue{% else %}slurm-error{% endif %}">
+                    <h5 class="fw-bold mb-3"><i class="fas fa-layer-group me-2"></i>Resultado del Planificador SLURM</h5>
                     
-                    {% if slurm.req_cpu == 0 and slurm.req_ram == 0 and slurm.req_gpu == 0 %}
+                    {% if prediccion.slurm.req_cpu == 0 and prediccion.slurm.req_ram == 0 and prediccion.slurm.req_gpu == 0 %}
                         <div class="text-center py-5">
                             <i class="fas fa-info-circle text-muted mb-2 fa-2x"></i>
                             <p class="text-muted small mb-0">Ingrese los requisitos de la tarea en el panel izquierdo para simular el comportamiento de asignación de recursos en tiempo real.</p>
@@ -385,53 +439,47 @@
                     {% else %}
                         <div class="d-flex align-items-center mb-4">
                             <div class="display-6 me-3">
-                                {% if slurm.estado == 'ejecucion_inmediata' %}
-                                    <i class="fas fa-play-circle text-success"></i>
-                                {% elif slurm.estado == 'en_cola' %}
-                                    <i class="fas fa-clock text-warning"></i>
+                                {% if prediccion.slurm.estado == 'ejecucion_inmediata' %}
+                                    <i class="fas fa-play-circle text-success fa-2x"></i>
+                                {% elif prediccion.slurm.estado == 'en_cola' %}
+                                    <i class="fas fa-clock text-warning fa-2x"></i>
                                 {% else %}
-                                    <i class="fas fa-ban text-danger"></i>
+                                    <i class="fas fa-ban text-danger fa-2x"></i>
                                 {% endif %}
                             </div>
                             <div>
                                 <h4 class="fw-bold mb-1">
-                                    {% if slurm.estado == 'ejecucion_inmediata' %}
+                                    {% if prediccion.slurm.estado == 'ejecucion_inmediata' %}
                                         Asignación Concedida
-                                    {% elif slurm.estado == 'en_cola' %}
+                                    {% elif prediccion.slurm.estado == 'en_cola' %}
                                         Trabajo en Espera
                                     {% else %}
                                         Trabajo Rechazado
                                     {% endif %}
                                 </h4>
-                                <span class="badge slurm-badge {% if slurm.estado == 'ejecucion_inmediata' %}bg-success{% elif slurm.estado == 'en_cola' %}bg-warning text-dark{% else %}bg-danger{% endif %}">
-                                    {% if slurm.estado == 'ejecucion_inmediata' %}
-                                        STATUS: RUNNING (Allocated)
-                                    {% elif slurm.estado == 'en_cola' %}
-                                        STATUS: PENDING (Resources)
-                                    {% else %}
-                                        STATUS: FAILED (CapacityLimit)
-                                    {% endif %}
+                                <span class="badge slurm-badge {% if prediccion.slurm.estado == 'ejecucion_inmediata' %}bg-success{% elif prediccion.slurm.estado == 'en_cola' %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                                    {{ prediccion.slurm.error_code }}
                                 </span>
                             </div>
                         </div>
 
-                        {% if slurm.motivo %}
+                        {% if prediccion.slurm.motivo %}
                             <div class="alert alert-secondary bg-dark bg-opacity-25 border-0 text-white small mb-4">
-                                <i class="fas fa-code-branch me-2 text-muted"></i>{{ slurm.motivo }}
+                                <i class="fas fa-code-branch me-2 text-muted"></i>{{ prediccion.slurm.motivo }}
                             </div>
                         {% endif %}
 
                         <div class="row g-3 text-center">
                             <div class="col-6 col-sm-4">
                                 <div class="bg-light bg-opacity-5 p-3 rounded">
-                                    <div class="fw-bold text-white fs-6">{{ slurm.nodo_sugerido }}</div>
+                                    <div class="fw-bold text-white fs-6">{{ prediccion.slurm.nodo_sugerido }}</div>
                                     <small class="text-muted d-block mt-1">Nodo Destino</small>
                                 </div>
                             </div>
                             <div class="col-6 col-sm-4">
                                 <div class="bg-light bg-opacity-5 p-3 rounded">
                                     <div class="fw-bold text-white fs-6">
-                                        {% if slurm.tiempo_espera %}{{ slurm.tiempo_espera }}{% else %}Inmediato{% endif %}
+                                        {% if prediccion.slurm.tiempo_espera %}{{ prediccion.slurm.tiempo_espera }}{% else %}Inmediato{% endif %}
                                     </div>
                                     <small class="text-muted d-block mt-1">Tiempo Estimado</small>
                                 </div>
@@ -439,7 +487,13 @@
                             <div class="col-12 col-sm-4">
                                 <div class="bg-light bg-opacity-5 p-3 rounded">
                                     <div class="fw-bold text-white fs-6">
-                                        {% if slurm.req_exclusivo %}Exclusiva (C4){% else %}Compartida (C1-C3){% endif %}
+                                        {% if prediccion.slurm.req_exclusivo %}
+                                            Exclusivo (C4)
+                                        {% elif prediccion.slurm.req_mpi %}
+                                            MPI Compartido
+                                        {% else %}
+                                            Compartido (C1-C3)
+                                        {% endif %}
                                     </div>
                                     <small class="text-muted d-block mt-1">Política de Acceso</small>
                                 </div>
@@ -450,10 +504,213 @@
             </div>
         </div>
 
+        <!-- MAPA DEL CLÚSTER EN TIEMPO REAL -->
         <div class="glass-card mb-4">
-            <h5 class="fw-bold mb-3"><i class="fas fa-chart-line me-2"></i>Proyección de Uso de Recursos</h5>
-            <div class="chart-container">
-                <canvas id="predChart"></canvas>
+            <h5 class="fw-bold mb-3"><i class="fas fa-network-wired me-2"></i>Mapa del Clúster en Tiempo Real (Estado de Nodos)</h5>
+            <p class="text-muted small">Representación física de los recursos en cada nodo del clúster. Cada bloque representa 1 procesador (Core).</p>
+            <div class="row g-4">
+                {% for nodo in prediccion.nodos %}
+                <div class="col-xl-3 col-md-6">
+                    <div class="glass-card h-100 p-3 border border-secondary border-opacity-10">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <h6 class="fw-bold mb-0 text-white">{{ nodo.nombre }}</h6>
+                                <small class="text-muted text-uppercase" style="font-size: 0.75rem;">
+                                    {% if nodo.tipo == 'exclusivo' %}
+                                        <i class="fas fa-lock text-warning me-1"></i>Exclusivo
+                                    {% else %}
+                                        <i class="fas fa-users text-primary me-1"></i>Compartido
+                                    {% endif %}
+                                </small>
+                            </div>
+                            <span class="badge {% if nodo.estado == 'Online' %}bg-success{% else %}bg-secondary{% endif %} slurm-badge">
+                                {{ nodo.estado }}
+                            </span>
+                        </div>
+                        
+                        <!-- Grilla de CPUs -->
+                        <div class="mb-3">
+                            <label class="form-label small text-muted d-flex justify-content-between mb-1">
+                                <span>Procesadores (Cores)</span>
+                                <span>{{ nodo.cpu_uso }}/{{ nodo.cpu_total }} Cores</span>
+                            </label>
+                            
+                            <!-- Dibujar los 32 bloques de CPU -->
+                            <div class="d-flex flex-wrap gap-1" style="max-width: 100%;">
+                                {% for core_idx in range(1, 33) %}
+                                    {% set is_used = core_idx <= nodo.cpu_uso %}
+                                    {% set is_allocated_user = false %}
+                                    
+                                    <!-- Si es el nodo sugerido y tenemos solicitud exitosa, simular resaltado de cores asignados para el usuario -->
+                                    {% if prediccion.slurm.estado == 'ejecucion_inmediata' and prediccion.slurm.req_cpu > 0 %}
+                                        {% if nodo.nombre == prediccion.slurm.nodo_sugerido %}
+                                            {% if core_idx > nodo.cpu_uso and core_idx <= (nodo.cpu_uso + prediccion.slurm.req_cpu) %}
+                                                {% set is_allocated_user = true %}
+                                            {% endif %}
+                                        {% elif prediccion.slurm.nodo_sugerido == 'C1, C2, C3 (Distribuido)' and nodo.tipo == 'compartido' %}
+                                            <!-- Si es MPI, distribuimos los cores solicitados proporcionalmente -->
+                                            {% set req_por_nodo = (prediccion.slurm.req_cpu / 3) | round(method='ceil') | int %}
+                                            {% if core_idx > nodo.cpu_uso and core_idx <= (nodo.cpu_uso + req_por_nodo) and core_idx <= nodo.cpu_total %}
+                                                {% set is_allocated_user = true %}
+                                            {% endif %}
+                                        {% endif %}
+                                    {% endif %}
+                                    
+                                    <div class="cpu-core-block" 
+                                         style="width: 14px; height: 14px; border-radius: 2px; 
+                                                {% if is_allocated_user %}
+                                                    background-color: #f59e0b; /* Color amarillo/naranja para cores que usará el usuario */
+                                                    box-shadow: 0 0 5px rgba(245,158,11,0.8);
+                                                    animation: pulse 1.5s infinite;
+                                                {% elif is_used %}
+                                                    background-color: {% if nodo.tipo == 'exclusivo' %}#ef4444{% else %}#3b82f6{% endif %}; /* Azul para compartidos ocupados, Rojo para exclusivo ocupado */
+                                                {% else %}
+                                                    background-color: rgba(255, 255, 255, 0.1);
+                                                {% endif %}"
+                                         title="Core {{ core_idx }}: {% if is_allocated_user %}Asignado para tu trabajo{% elif is_used %}En uso{% else %}Libre{% endif %}">
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Barra de Memoria RAM -->
+                        <div class="mb-3">
+                            <label class="form-label small text-muted d-flex justify-content-between mb-1">
+                                <span>Memoria RAM</span>
+                                <span>{{ nodo.ram_uso }} GB / {{ nodo.ram_total }} GB</span>
+                            </label>
+                            <div class="progress-premium" style="height: 6px;">
+                                {% set ram_pct = (nodo.ram_uso / nodo.ram_total * 100) | round | int %}
+                                <div class="progress-bar {% if ram_pct >= 90 %}bg-danger{% elif ram_pct >= 70 %}bg-warning{% else %}bg-success{% endif %}" style="width: {{ ram_pct }}%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Indicador GPU -->
+                        <div class="d-flex justify-content-between align-items-center bg-light bg-opacity-5 p-2 rounded">
+                            <span class="small text-muted"><i class="fas fa-vr-cardboard me-2"></i>Acelerador GPU</span>
+                            <span class="small fw-bold {% if nodo.gpu_uso > 0 %}text-warning{% else %}text-muted{% endif %}">
+                                {% if nodo.gpu_uso > 0 %}
+                                    <i class="fas fa-circle text-warning me-1 small"></i>Ocupado (1/1)
+                                {% else %}
+                                    <i class="far fa-circle text-muted me-1 small"></i>Libre (0/1)
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Leyenda de colores -->
+            <div class="d-flex gap-4 mt-3 pt-2 border-top border-secondary border-opacity-10 justify-content-center flex-wrap">
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width: 12px; height: 12px; border-radius: 2px; background-color: rgba(255,255,255,0.1);"></div>
+                    <span class="x-small text-muted">Core Libre</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width: 12px; height: 12px; border-radius: 2px; background-color: #3b82f6;"></div>
+                    <span class="x-small text-muted">Core en Uso (Trabajo Compartido)</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width: 12px; height: 12px; border-radius: 2px; background-color: #ef4444;"></div>
+                    <span class="x-small text-muted">Core en Uso (Trabajo Exclusivo)</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width: 12px; height: 12px; border-radius: 2px; background-color: #f59e0b; box-shadow: 0 0 5px rgba(245,158,11,0.8);"></div>
+                    <span class="x-small text-muted">Core Reservado para tu Trabajo</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- GRÁFICOS DE ESTIMACIÓN Y PLANIFICACIÓN -->
+        <div class="glass-card mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3 border-bottom border-secondary border-opacity-10 pb-2">
+                <h5 class="fw-bold mb-0"><i class="fas fa-chart-line me-2"></i>Gráficos de Estimación y Planificación</h5>
+                <ul class="nav nav-tabs border-0" id="chartTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active border-0 text-white bg-transparent opacity-75" id="growth-tab" data-bs-toggle="tab" data-bs-target="#growth-pane" type="button" role="tab" aria-controls="growth-pane" aria-selected="true">
+                            <i class="fas fa-chart-line me-1"></i>Proyección de Crecimiento
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link border-0 text-white bg-transparent opacity-75" id="slurm-tab" data-bs-toggle="tab" data-bs-target="#slurm-pane" type="button" role="tab" aria-controls="slurm-pane" aria-selected="false">
+                            <i class="fas fa-clock me-1"></i>Tiempo de Espera SLURM
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link border-0 text-white bg-transparent opacity-75" id="frag-tab" data-bs-toggle="tab" data-bs-target="#frag-pane" type="button" role="tab" aria-controls="frag-pane" aria-selected="false">
+                            <i class="fas fa-puzzle-piece me-1"></i>Fragmentación de Partición
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="tab-content" id="chartTabsContent">
+                <!-- Tab 1: Proyección de Crecimiento -->
+                <div class="tab-pane fade show active" id="growth-pane" role="tabpanel" aria-labelledby="growth-tab" tabindex="0">
+                    <div class="chart-container">
+                        <canvas id="predChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Tab 2: Tiempo de Espera SLURM -->
+                <div class="tab-pane fade" id="slurm-pane" role="tabpanel" aria-labelledby="slurm-tab" tabindex="0">
+                    <div class="row g-3">
+                        <div class="col-md-9">
+                            <div class="chart-container">
+                                <canvas id="slurmWaitChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-md-3 d-flex flex-column justify-content-center">
+                            <div class="bg-light bg-opacity-5 p-3 rounded mb-3 border border-secondary border-opacity-10">
+                                <h6 class="fw-bold text-white mb-2" style="font-size: 0.9rem;"><i class="fas fa-info-circle text-primary me-2"></i>Backfilling de SLURM</h6>
+                                <p class="x-small text-muted mb-0">
+                                    SLURM utiliza una política de <strong>Backfilling</strong>. Si solicitas menos cores (ej. &lt;= 24 cores), tu trabajo se puede ejecutar de inmediato aprovechando los huecos de recursos disponibles, con espera cero.
+                                </p>
+                            </div>
+                            <div class="bg-light bg-opacity-5 p-3 rounded border border-secondary border-opacity-10">
+                                <h6 class="fw-bold text-white mb-2" style="font-size: 0.9rem;"><i class="fas fa-server text-warning me-2"></i>MPI vs Mono-nodo</h6>
+                                <p class="x-small text-muted mb-0">
+                                    Los trabajos <strong>Mono-nodo</strong> requieren cores contiguos en el mismo nodo. Los trabajos <strong>Multi-nodo (MPI)</strong> pueden distribuirse en varios nodos, lo que permite ejecutar tareas de hasta 96 cores tolerando la espera.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Tab 3: Fragmentación de Partición -->
+                <div class="tab-pane fade" id="frag-pane" role="tabpanel" aria-labelledby="frag-tab" tabindex="0">
+                    <div class="row g-3">
+                        <div class="col-md-7">
+                            <div class="chart-container">
+                                <canvas id="slurmFragChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-md-5 d-flex flex-column justify-content-center">
+                            <div class="text-center p-4 bg-light bg-opacity-5 rounded mb-3 border border-secondary border-opacity-10">
+                                <h2 class="fw-bold display-4 text-warning mb-1">{{ prediccion.fragmentacion_pct }}%</h2>
+                                <h6 class="text-white fw-bold">Índice de Fragmentación de CPU</h6>
+                                <p class="x-small text-muted mb-0 mt-2">
+                                    Porcentaje de los cores libres de la partición compartida que están dispersos en diferentes nodos físicos, impidiendo su uso por trabajos Mono-nodo que soliciten más de 24 Cores.
+                                </p>
+                            </div>
+                            <div class="p-3 bg-light bg-opacity-5 rounded border border-secondary border-opacity-10">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="small text-muted">Total Cores Libres (Compartida)</span>
+                                    <span class="small fw-bold text-white">44 Cores</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="small text-muted">Bloque Contiguo Máximo</span>
+                                    <span class="small fw-bold text-white">24 Cores (C3)</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="small text-muted">Cores Desconectados (Fragmentados)</span>
+                                    <span class="small fw-bold text-danger">20 Cores</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -515,25 +772,27 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        const ctx = document.getElementById('predChart').getContext('2d');
-        const labels = {{ prediccion.proyecciones | map(attribute='fecha') | list | tojson }};
-        const cpuData = {{ prediccion.proyecciones | map(attribute='cpu_pct') | list | tojson }};
-        const ramData = {{ prediccion.proyecciones | map(attribute='ram_pct') | list | tojson }};
-        const gpuData = {{ prediccion.proyecciones | map(attribute='gpu_pct') | list | tojson }};
-
+        // Configuración de tema
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
         const textColor = isDark ? '#94a3b8' : '#64748b';
 
-        new Chart(ctx, {
+        // 1. Gráfico de Proyección de Recursos
+        const ctxGrowth = document.getElementById('predChart').getContext('2d');
+        const labelsGrowth = {{ prediccion.proyecciones | map(attribute='fecha') | list | tojson }};
+        const cpuData = {{ prediccion.proyecciones | map(attribute='cpu_pct') | list | tojson }};
+        const ramData = {{ prediccion.proyecciones | map(attribute='ram_pct') | list | tojson }};
+        const gpuData = {{ prediccion.proyecciones | map(attribute='gpu_pct') | list | tojson }};
+
+        new Chart(ctxGrowth, {
             type: 'line',
             data: {
-                labels: labels,
+                labels: labelsGrowth,
                 datasets: [{
                     label: 'CPU %',
                     data: cpuData,
                     borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59,130,246,0.1)',
+                    backgroundColor: 'rgba(59,130,246,0.05)',
                     fill: true,
                     tension: 0.4,
                     pointRadius: 3,
@@ -541,7 +800,7 @@
                     label: 'RAM %',
                     data: ramData,
                     borderColor: '#10b981',
-                    backgroundColor: 'rgba(16,185,129,0.1)',
+                    backgroundColor: 'rgba(16,185,129,0.05)',
                     fill: true,
                     tension: 0.4,
                     pointRadius: 3,
@@ -549,7 +808,7 @@
                     label: 'GPU %',
                     data: gpuData,
                     borderColor: '#f59e0b',
-                    backgroundColor: 'rgba(245,158,11,0.1)',
+                    backgroundColor: 'rgba(245,158,11,0.05)',
                     fill: true,
                     tension: 0.4,
                     pointRadius: 3,
@@ -559,28 +818,128 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: {
-                        labels: { color: textColor, font: { size: 12 } }
-                    }
+                    legend: { labels: { color: textColor, font: { size: 12 } } }
                 },
                 scales: {
-                    x: {
-                        grid: { color: gridColor },
-                        ticks: { color: textColor }
-                    },
+                    x: { grid: { color: gridColor }, ticks: { color: textColor } },
                     y: {
                         grid: { color: gridColor },
                         ticks: { color: textColor },
                         max: 100,
-                        title: {
-                            display: true,
-                            text: 'Uso (%)',
-                            color: textColor
-                        }
+                        title: { display: true, text: 'Uso (%)', color: textColor }
                     }
                 }
             }
         });
+
+        // 2. Gráfico de Tiempos de Espera SLURM (Backfilling vs Tamaño del Trabajo)
+        const ctxWait = document.getElementById('slurmWaitChart').getContext('2d');
+        const monoCpu = {{ prediccion.slurm.curva_mono_cpu | tojson }};
+        const monoWait = {{ prediccion.slurm.curva_mono_wait | tojson }};
+        const mpiCpu = {{ prediccion.slurm.curva_mpi_cpu | tojson }};
+        const mpiWait = {{ prediccion.slurm.curva_mpi_wait | tojson }};
+
+        new Chart(ctxWait, {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: 'Espera Mono-nodo (Minutos)',
+                    data: monoCpu.map((cpu, index) => ({x: cpu, y: monoWait[index]})),
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'transparent',
+                    borderWidth: 3,
+                    tension: 0.2,
+                    pointRadius: 5,
+                    pointBackgroundColor: '#3b82f6',
+                }, {
+                    label: 'Espera Multi-nodo/MPI (Minutos)',
+                    data: mpiCpu.map((cpu, index) => ({x: cpu, y: mpiWait[index]})),
+                    borderColor: '#10b981',
+                    backgroundColor: 'transparent',
+                    borderWidth: 3,
+                    tension: 0.2,
+                    pointRadius: 5,
+                    pointBackgroundColor: '#10b981',
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: textColor } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Espera: ${context.parsed.y} mins para ${context.parsed.x} Cores`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        title: { display: true, text: 'Cores Solicitados', color: textColor },
+                        grid: { color: gridColor },
+                        ticks: { color: textColor, stepSize: 10 }
+                    },
+                    y: {
+                        title: { display: true, text: 'Tiempo de Espera (Minutos)', color: textColor },
+                        grid: { color: gridColor },
+                        ticks: { color: textColor }
+                    }
+                }
+            }
+        });
+
+        // 3. Gráfico de Fragmentación y Estado de Cores del Clúster
+        const ctxFrag = document.getElementById('slurmFragChart').getContext('2d');
+        new Chart(ctxFrag, {
+            type: 'doughnut',
+            data: {
+                labels: [
+                    'Cores Libres Contiguos (Bloque Máx.)',
+                    'Cores Libres Fragmentados (Dispersos)',
+                    'Cores en Uso (Partición Compartida)',
+                    'Cores Reservados (Partición Exclusiva C4)'
+                ],
+                datasets: [{
+                    data: [24, 20, 52, 32],
+                    backgroundColor: [
+                        '#10b981', // Verde: libre y usable
+                        '#f59e0b', // Amarillo: libre pero fragmentado
+                        '#3b82f6', // Azul: en uso compartido
+                        '#ef4444'  // Rojo: reservado por exclusivo
+                    ],
+                    borderWidth: isDark ? 2 : 1,
+                    borderColor: isDark ? '#1e293b' : '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { color: textColor, font: { size: 11 } }
+                    }
+                },
+                cutout: '65%'
+            }
+        });
+
+        // Habilitar/deshabilitar campo exclusivo si MPI está seleccionado
+        const mpiSwitch = document.getElementById('req_mpi');
+        const exclusivoSwitch = document.getElementById('req_exclusivo');
+        if (mpiSwitch && exclusivoSwitch) {
+            mpiSwitch.addEventListener('change', function() {
+                if (this.checked) {
+                    exclusivoSwitch.checked = false;
+                    exclusivoSwitch.disabled = true;
+                } else {
+                    exclusivoSwitch.disabled = false;
+                }
+            });
+        }
     </script>
     <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
 </body>

@@ -15,6 +15,13 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 app.secret_key = 'cluster_nidtec_secret'
 
+# ── Tiempo de sesión ────────────────────────────────────────────────
+# Admin: 20 min | Usuario normal: 40 min
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)  # techo duro
+SESSION_ADMIN_MIN = 20
+SESSION_USER_MIN = 40
+WARNING_SECONDS = 60  # mostrar advertencia 1 min antes
+
 UPLOAD_FOLDER = 'static/uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -150,6 +157,26 @@ class Noticia(db.Model):
         self.fecha_evento = fecha_evento
         self.autor_id = autor_id
 
+# ── Before request: verificar expiración de sesión ──────────────────
+@app.before_request
+def verificar_sesion_expirada():
+    if 'user_id' in session and request.endpoint not in ('login', 'index', 'registro', 'recuperar_password', 'extender_sesion', 'tiempo_sesion', 'static'):
+        expira = session.get('session_expires_at')
+        if expira and datetime.now().timestamp() > expira:
+            session.clear()
+            flash('Tu sesión ha expirado por inactividad. Inicia sesión nuevamente.', 'warning')
+            return redirect(url_for('index'))
+    # Pasar el tiempo restante a todas las plantillas protegidas
+    if 'user_id' in session:
+        expira = session.get('session_expires_at')
+        if expira:
+            remainder = int(expira - datetime.now().timestamp())
+            session['_session_remaining'] = max(0, remainder)
+
+# ── Helper para tiempo de sesión ────────────────────────────────────
+def get_session_timeout_minutes(is_admin):
+    return SESSION_ADMIN_MIN if is_admin else SESSION_USER_MIN
+
 # --- Rutas ---
 
 # ==========================================
@@ -187,9 +214,12 @@ def login():
         # Verificamos si existe y si el hash de la contraseña coincide
         if usuario and bcrypt.check_password_hash(usuario.password_hash, password):
             # Guardamos los datos críticos en la sesión de Flask
+            session.permanent = True
             session['user_id'] = usuario.id_usuario
             session['user_name'] = usuario.nombre_apellido
             session['is_admin'] = usuario.es_administrador
+            timeout_min = get_session_timeout_minutes(usuario.es_administrador)
+            session['session_expires_at'] = (datetime.now() + timedelta(minutes=timeout_min)).timestamp()
 
             # Limpiamos el captcha usado de la sesión
             session.pop('captcha_result', None)
@@ -277,7 +307,12 @@ def dashboard():
             'nombre_solicitante': s.nombre_solicitante,
             'correo_solicitante': s.correo_solicitante,
             'nombre_proyecto': s.nombre_proyecto,
+            'facultad': s.facultad,
+            'carrera': s.carrera,
+            'asignatura_modulo': s.asignatura_modulo,
             'profesor_tutor': s.profesor_tutor,
+            'software_requerido': s.software_requerido,
+            'observaciones': s.observaciones,
             'fecha_inicio': s.fecha_inicio,
             'fecha_finalizacion_estimada': s.fecha_finalizacion_estimada,
             'estado': estado_mostrar,
@@ -298,11 +333,35 @@ def dashboard():
     unread_count = Notificacion.query.filter_by(id_usuario_destino=user_id, leida=False).count()
     unread_notifs = Notificacion.query.filter_by(id_usuario_destino=user_id, leida=False).order_by(Notificacion.fecha.desc()).limit(5).all()
     
+    # Usuario actual para el sidebar
+    user = Usuario.query.get(user_id)
+
     # Noticias para la columna lateral (Próximos 7 días)
     fecha_limite = (datetime.now() + timedelta(days=7)).date()
     noticias_sidebar = Noticia.query.filter(Noticia.fecha_evento <= fecha_limite, Noticia.fecha_evento >= datetime.now().date()).order_by(Noticia.fecha_evento.asc()).all()
 
-    return render_template('dashboard.html', solicitudes=db_solicitudes, is_admin=is_admin, unread_count=unread_count, unread_notifs=unread_notifs, noticias_sidebar=noticias_sidebar)
+    return render_template('dashboard.html', solicitudes=db_solicitudes, is_admin=is_admin, unread_count=unread_count, unread_notifs=unread_notifs, noticias_sidebar=noticias_sidebar, session_remaining=session.get('_session_remaining', 0), user=user)
+
+# ── Extender sesión ────────────────────────────────────────────────
+@app.route('/extender-sesion', methods=['POST'])
+def extender_sesion():
+    if 'user_id' not in session:
+        return jsonify({'ok': False, 'error': 'no_session'}), 401
+    is_admin = session.get('is_admin', False)
+    timeout_min = get_session_timeout_minutes(is_admin)
+    session['session_expires_at'] = (datetime.now() + timedelta(minutes=timeout_min)).timestamp()
+    return jsonify({'ok': True, 'remaining': timeout_min * 60})
+
+# ── Consultar tiempo restante ──────────────────────────────────────
+@app.route('/tiempo-sesion')
+def tiempo_sesion():
+    if 'user_id' not in session:
+        return jsonify({'ok': False, 'error': 'no_session'}), 401
+    expira = session.get('session_expires_at')
+    if not expira:
+        return jsonify({'ok': False, 'error': 'no_expiry'}), 400
+    remaining = int(expira - datetime.now().timestamp())
+    return jsonify({'ok': True, 'remaining': max(0, remaining)})
 
 @app.route('/solicitud', methods=['GET', 'POST'])
 def nueva_solicitud():
@@ -437,16 +496,63 @@ def rechazar_solicitud(id):
     flash(f'Solicitud #{id} rechazada', 'warning')
     return redirect(url_for('dashboard'))
 
-@app.route('/solicitud/<int:id>/borrar')
+@app.route('/solicitud/<int:id>/borrar', methods=['POST'])
 def borrar_solicitud(id):
-    if 'user_id' not in session or not session.get('is_admin'):
+    if 'user_id' not in session:
         flash('Acceso no autorizado', 'danger')
         return redirect(url_for('index'))
     
     solicitud = Solicitud.query.get_or_404(id)
+    # Admin puede borrar cualquiera; usuario solo la suya si está PENDIENTE
+    is_admin = session.get('is_admin', False)
+    is_owner = solicitud.id_usuario_solicitante == session['user_id']
+    if not is_admin and not (is_owner and solicitud.estado == 'PENDIENTE'):
+        flash('No tiene permisos para eliminar esta solicitud', 'danger')
+        return redirect(url_for('dashboard'))
+
+    # Eliminar registros relacionados antes de borrar la solicitud
+    aprobacion = SolicitudAprobada.query.filter_by(id_solicitud_origen=solicitud.id_solicitud).first()
+    if aprobacion:
+        Proyecto.query.filter_by(id_solicitud_aprobada=aprobacion.id_solicitud_aprobada).delete()
+        db.session.delete(aprobacion)
     db.session.delete(solicitud)
     db.session.commit()
     flash(f'Solicitud #{id} eliminada permanentemente', 'info')
+    return redirect(url_for('dashboard'))
+
+@app.route('/solicitud/<int:id>/editar', methods=['POST'])
+def editar_solicitud(id):
+    if 'user_id' not in session:
+        flash('Acceso no autorizado', 'danger')
+        return redirect(url_for('index'))
+
+    solicitud = Solicitud.query.get_or_404(id)
+    is_admin = session.get('is_admin', False)
+    is_owner = solicitud.id_usuario_solicitante == session['user_id']
+    if not is_admin and not (is_owner and solicitud.estado == 'PENDIENTE'):
+        flash('No tiene permisos para editar esta solicitud', 'danger')
+        return redirect(url_for('dashboard'))
+
+    try:
+        solicitud.nombre_proyecto = request.form.get('nombre_proyecto', solicitud.nombre_proyecto)
+        solicitud.facultad = request.form.get('facultad', solicitud.facultad)
+        solicitud.carrera = request.form.get('carrera', solicitud.carrera)
+        solicitud.asignatura_modulo = request.form.get('asignatura_modulo', solicitud.asignatura_modulo)
+        solicitud.profesor_tutor = request.form.get('profesor_tutor', solicitud.profesor_tutor)
+        solicitud.software_requerido = request.form.get('software_requerido', solicitud.software_requerido)
+        solicitud.observaciones = request.form.get('observaciones', solicitud.observaciones)
+        fecha_inicio_str = request.form.get('fecha_inicio')
+        fecha_fin_str = request.form.get('fecha_finalizacion_estimada')
+        if fecha_inicio_str:
+            solicitud.fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+        if fecha_fin_str:
+            solicitud.fecha_finalizacion_estimada = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+        db.session.commit()
+        flash(f'Solicitud #{id} actualizada correctamente', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al editar solicitud: {str(e)}', 'danger')
+
     return redirect(url_for('dashboard'))
 
 @app.route('/arquitectura')
@@ -597,7 +703,10 @@ def solicitud_pdf(id):
     pdf_output = bytes(pdf.output())
     response = make_response(pdf_output)
     response.headers['Content-Type'] = 'application/pdf'
-    response.headers['Content-Disposition'] = f'attachment; filename=solicitud_{s.id_solicitud}.pdf'
+    # ?preview=1 → inline (vista previa en el navegador), sin ?preview → attachment (descarga directa)
+    is_preview = request.args.get('preview') == '1'
+    disposition = 'inline' if is_preview else 'attachment'
+    response.headers['Content-Disposition'] = f'{disposition}; filename=solicitud_{s.id_solicitud}.pdf'
     return response
 
 @app.route('/proyectos')
@@ -745,22 +854,61 @@ def analisis_predictivo():
         abort(403)  # Lanza un error HTTP 403 Prohibido
 
     # 3. Inicialización y simulación de la infraestructura base (Nodos C1 a C4)
-    recursos_data = {
-        'nodos': [
-            {'nombre': 'C1', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline', 'tipo': 'compartido'},
-            {'nombre': 'C2', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline', 'tipo': 'compartido'},
-            {'nombre': 'C3', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline', 'tipo': 'compartido'},
-            {'nombre': 'C4', 'cpu_uso': 0, 'ram_uso': 0, 'estado': 'Offline', 'tipo': 'exclusivo'}
-        ],
-        'total_cpu': 128,  # 32 cores x 4 nodos
-        'uso_cpu': 32,
-        'total_ram': 512,  # 128 GB x 4 nodos
-        'uso_ram': 128,
-        'total_gpu': 4,    # 1 GPU x 4 nodos
-        'uso_gpu': 1
-    }
+    # Especificaciones físicas del hardware:
+    # 4 nodos: C1, C2, C3 (compartidos) y C4 (exclusivo)
+    # Memoria: 128 GB c/u, Cores: 32 c/u, GPU: 1 c/u
+    cpu_por_nodo = 32
+    ram_por_nodo = 128
+    gpu_por_nodo = 1
+    num_nodos = 4
 
-    # 4. Conexión SSH para recopilar métricas en tiempo real del clúster
+    # Estado de trabajos activos simulados en el clúster (para simulación de colas/backfill)
+    trabajos_activos = [
+        {'id': 101, 'usuario': 'lgarcia', 'nodo': 'C1', 'cpu': 12, 'ram': 48, 'gpu': 0, 'tiempo_restante': '00:15:00', 'min_restantes': 15},
+        {'id': 102, 'usuario': 'mbenitez', 'nodo': 'C1', 'cpu': 8, 'ram': 32, 'gpu': 0, 'tiempo_restante': '00:45:00', 'min_restantes': 45},
+        {'id': 103, 'usuario': 'jduarte', 'nodo': 'C2', 'cpu': 24, 'ram': 96, 'gpu': 1, 'tiempo_restante': '01:30:00', 'min_restantes': 90},
+        {'id': 104, 'usuario': 'arojas', 'nodo': 'C3', 'cpu': 8, 'ram': 16, 'gpu': 0, 'tiempo_restante': '00:10:00', 'min_restantes': 10},
+        {'id': 105, 'usuario': 'fnoguera', 'nodo': 'C4', 'cpu': 16, 'ram': 64, 'gpu': 1, 'tiempo_restante': '02:15:00', 'min_restantes': 135, 'exclusivo': True}
+    ]
+
+    # Crear lista de nodos y calcular su uso
+    nodos_list = [
+        {'nombre': 'C1', 'tipo': 'compartido', 'cpu_total': 32, 'ram_total': 128, 'gpu_total': 1, 'cpu_uso': 0, 'ram_uso': 0, 'gpu_uso': 0, 'estado': 'Online', 'trabajos': [], 'exclusivo_ocupado': False},
+        {'nombre': 'C2', 'tipo': 'compartido', 'cpu_total': 32, 'ram_total': 128, 'gpu_total': 1, 'cpu_uso': 0, 'ram_uso': 0, 'gpu_uso': 0, 'estado': 'Online', 'trabajos': [], 'exclusivo_ocupado': False},
+        {'nombre': 'C3', 'tipo': 'compartido', 'cpu_total': 32, 'ram_total': 128, 'gpu_total': 1, 'cpu_uso': 0, 'ram_uso': 0, 'gpu_uso': 0, 'estado': 'Online', 'trabajos': [], 'exclusivo_ocupado': False},
+        {'nombre': 'C4', 'tipo': 'exclusivo', 'cpu_total': 32, 'ram_total': 128, 'gpu_total': 1, 'cpu_uso': 0, 'ram_uso': 0, 'gpu_uso': 0, 'estado': 'Online', 'trabajos': [], 'exclusivo_ocupado': False}
+    ]
+
+    for job in trabajos_activos:
+        for nodo in nodos_list:
+            if nodo['nombre'] == job['nodo']:
+                nodo['trabajos'].append(job)
+                nodo['cpu_uso'] += job['cpu']
+                nodo['ram_uso'] += job['ram']
+                nodo['gpu_uso'] += job['gpu']
+                if job.get('exclusivo'):
+                    nodo['exclusivo_ocupado'] = True
+
+    # Calcular recursos disponibles para asignación de SLURM (teniendo en cuenta la exclusividad)
+    for n in nodos_list:
+        if n['exclusivo_ocupado']:
+            n['cpu_disp'] = 0
+            n['ram_disp'] = 0
+            n['gpu_disp'] = 0
+        else:
+            n['cpu_disp'] = n['cpu_total'] - n['cpu_uso']
+            n['ram_disp'] = n['ram_total'] - n['ram_uso']
+            n['gpu_disp'] = n['gpu_total'] - n['gpu_uso']
+
+    # Totales para uso general
+    cpu_total = sum(n['cpu_total'] for n in nodos_list)
+    cpu_uso = sum(n['cpu_uso'] for n in nodos_list)
+    ram_total = sum(n['ram_total'] for n in nodos_list)
+    ram_uso = sum(n['ram_uso'] for n in nodos_list)
+    gpu_total = sum(n['gpu_total'] for n in nodos_list)
+    gpu_uso = sum(n['gpu_uso'] for n in nodos_list)
+
+    # 4. Conexión SSH opcional
     ssh_config = get_user_ssh_config(user.correo_electronico) if user else None
     if ssh_config:
         try:
@@ -773,57 +921,45 @@ def analisis_predictivo():
                 timeout=10
             )
             
-            # Comandos del sistema
+            # Obtener datos del servidor
             stdin, stdout, stderr = ssh.exec_command("top -bn1 | grep 'Cpu(s)' | awk '{print $2}'", timeout=10)
             cpu_str = stdout.read().decode().strip()
             uso_cpu_porcentaje = float(cpu_str) if cpu_str else 0
             
             stdin, stdout, stderr = ssh.exec_command("free -m | awk 'NR==2{print $3, $2}'", timeout=10)
             ram_line = stdout.read().decode().strip().split()
-            uso_ram = int(ram_line[0]) if len(ram_line) > 0 else 0
-            total_ram = int(ram_line[1]) if len(ram_line) > 1 else 1
-            
-            stdin, stdout, stderr = ssh.exec_command("nproc", timeout=10)
-            total_cpu = int(stdout.read().decode().strip() or 1)
+            uso_ram_val = int(ram_line[0]) if len(ram_line) > 0 else 0
+            total_ram_val = int(ram_line[1]) if len(ram_line) > 1 else 1
             
             stdin, stdout, stderr = ssh.exec_command("hostname", timeout=10)
             hostname = stdout.read().decode().strip()
             ssh.close()
 
-            # Actualizar dinámicamente el nodo desde el que responde SSH
-            for nodo in recursos_data['nodos']:
+            # Si SSH responde, mapeamos su carga al primer nodo compartido y recalculamos totales
+            # para no romper el modelo lógico del simulador
+            for nodo in nodos_list:
                 if nodo['nombre'].lower() == hostname.lower() or hostname[-2:] in nodo['nombre']:
-                    nodo['cpu_uso'] = int(uso_cpu_porcentaje)
-                    nodo['ram_uso'] = int(uso_ram / max(total_ram, 1) * 100)
-                    nodo['estado'] = 'Online'
+                    nodo['cpu_uso'] = int(nodo['cpu_total'] * uso_cpu_porcentaje / 100)
+                    nodo['ram_uso'] = int(nodo['ram_total'] * (uso_ram_val / total_ram_val))
+                    nodo['cpu_disp'] = max(0, nodo['cpu_total'] - nodo['cpu_uso'])
+                    nodo['ram_disp'] = max(0, nodo['ram_total'] - nodo['ram_uso'])
                     break
             else:
-                recursos_data['nodos'][0]['cpu_uso'] = int(uso_cpu_porcentaje)
-                recursos_data['nodos'][0]['ram_uso'] = int(uso_ram / max(total_ram, 1) * 100)
-                recursos_data['nodos'][0]['estado'] = 'Online'
+                nodos_list[0]['cpu_uso'] = int(nodos_list[0]['cpu_total'] * uso_cpu_porcentaje / 100)
+                nodos_list[0]['ram_uso'] = int(nodos_list[0]['ram_total'] * (uso_ram_val / total_ram_val))
+                nodos_list[0]['cpu_disp'] = max(0, nodos_list[0]['cpu_total'] - nodos_list[0]['cpu_uso'])
+                nodos_list[0]['ram_disp'] = max(0, nodos_list[0]['ram_total'] - nodos_list[0]['ram_uso'])
 
-            # Ajuste de totales dinámicos devueltos por el servidor central
-            recursos_data['total_cpu'] = total_cpu
-            recursos_data['uso_cpu'] = int(total_cpu * uso_cpu_porcentaje / 100)
-            recursos_data['total_ram'] = int(total_ram / 1024)  # Convertir a GB aproximado
-            recursos_data['uso_ram'] = int(uso_ram / 1024)
-            
+            # Recalcular totales generales
+            cpu_uso = sum(n['cpu_uso'] for n in nodos_list)
+            ram_uso = sum(n['ram_uso'] for n in nodos_list)
         except Exception:
-            # Si el SSH falla, se mantienen los valores por defecto configurados en 'recursos_data'
             pass
 
-    # 5. Parámetros del formulario web
+    # 5. Parámetros del formulario
     tasa = request.form.get('tasa', 5, type=float)
     meses = request.form.get('meses', 12, type=int)
     puertos = request.form.get('puertos', 24, type=int)
-
-    # Variables de consumo global
-    cpu_total = recursos_data['total_cpu']
-    cpu_uso = recursos_data['uso_cpu']
-    ram_total = recursos_data['total_ram']
-    ram_uso = recursos_data['uso_ram']
-    gpu_total = recursos_data['total_gpu']
-    gpu_uso = recursos_data['uso_gpu']
 
     cpu_pct = (cpu_uso / cpu_total * 100) if cpu_total else 0
     ram_pct = (ram_uso / ram_total * 100) if ram_total else 0
@@ -852,12 +988,7 @@ def analisis_predictivo():
     mes_agotar_ram = next((p['mes'] for p in proyecciones if p['ram_pct'] >= 100), None)
     mes_agotar_gpu = next((p['mes'] for p in proyecciones if p['gpu_pct'] >= 100), None)
 
-    # 7. Planificación y cálculo de déficits físicos
-    num_nodos = len(recursos_data['nodos'])
-    cpu_por_nodo = 32   # Especificación rígida dada por el hardware
-    ram_por_nodo = 128  # Especificación rígida dada por el hardware
-    gpu_por_nodo = 1    # Especificación rígida dada por el hardware
-
+    # 7. Planificación de Equipos y Switch
     factor_12m = growth_factor ** min(meses, 12)
     cpu_deficit = max(0, cpu_uso * factor_12m - cpu_total)
     ram_deficit = max(0, ram_uso * factor_12m - ram_total)
@@ -873,45 +1004,174 @@ def analisis_predictivo():
     switches_req = max(1, math.ceil(total_final / puertos))
     puertos_libres = switches_req * puertos - total_final
 
-    # --- [8. SIMULACIÓN DE ESTIMACIÓN DE PLANIFICACIÓN SLURM] ---
+    # --- [8. SIMULACIÓN DE ESTIMACIÓN DE PLANIFICACIÓN SLURM ADVANCED] ---
     req_cpu = request.form.get('req_cpu', 0, type=int)
     req_ram = request.form.get('req_ram', 0, type=int)
     req_gpu = request.form.get('req_gpu', 0, type=int)
     req_exclusivo = request.form.get('req_exclusivo', 'false') == 'true'
+    req_mpi = request.form.get('req_mpi', 'false') == 'true'
+    req_time = request.form.get('req_time', 2, type=int)
 
     slurm_estado = 'ejecucion_inmediata'
     slurm_motivo = ''
     slurm_nodo_sugerido = 'Ninguno'
     slurm_tiempo_espera = None
+    slurm_error_code = 'STATUS: IDLE'
 
+    # Validar si hay solicitud activa
     if req_cpu > 0 or req_ram > 0 or req_gpu > 0:
-        # LÍMITES FÍSICOS INDIVIDUALES DE LA ARQUITECTURA (32 CPUs, 128 GB RAM, 1 GPU)
-        if req_cpu > 32 or req_ram > 128 or req_gpu > 1:
-            slurm_estado = 'sin_recursos'
-            slurm_motivo = (
-                f"La solicitud excede los límites físicos unitarios del clúster "
-                f"(Solicitado: {req_cpu} Cores, {req_ram} GB RAM, {req_gpu} GPU). "
-                f"Código de error SLURM: REASON_CAPACITY (PartitionNodeLimit)."
-            )
-        else:
-            # Calcular remanente real del clúster en base a mediciones de uso actuales
-            cpu_libres_global = max(0, cpu_total - cpu_uso)
-            ram_libre_global = max(0, ram_total - ram_uso)
-            gpu_libres_global = max(0, gpu_total - gpu_uso)
-
-            # ESCENARIO: TRABAJO VIABLE PERO RECURSOS COMPROMETIDOS/OCUPADOS
-            if req_cpu > cpu_libres_global or req_ram > ram_libre_global or req_gpu > gpu_libres_global:
-                slurm_estado = 'en_cola'
+        if req_exclusivo:
+            # Destinado a C4
+            if req_cpu > cpu_por_nodo or req_ram > ram_por_nodo or req_gpu > gpu_por_nodo:
+                slurm_estado = 'sin_recursos'
                 slurm_motivo = (
-                    "El trabajo es viable en la infraestructura, pero los slots requeridos "
-                    "están ocupados por tareas activas. Código SLURM: STATE_PENDING (Resources)."
+                    f"La solicitud excede la capacidad física del nodo exclusivo C4 "
+                    f"(Límites C4: {cpu_por_nodo} Cores, {ram_por_nodo} GB RAM, {gpu_por_nodo} GPU). "
+                    f"Código SLURM: REASON_CAPACITY (PartitionNodeLimit)."
                 )
-                slurm_tiempo_espera = "00:35:40"  # Tiempo simulado de cola
-                slurm_nodo_sugerido = "C4 (Exclusivo)" if req_exclusivo else "C1, C2 o C3 (Compartidos)"
+                slurm_error_code = "FAILED (PartitionNodeLimit)"
             else:
-                # Todo Ok -> Ejecución inmediata
-                slurm_estado = 'ejecucion_inmediata'
-                slurm_nodo_sugerido = "C4" if req_exclusivo else "C1"
+                # Verificar si C4 está ocupado
+                c4 = next(n for n in nodos_list if n['nombre'] == 'C4')
+                if c4['exclusivo_ocupado']:
+                    slurm_estado = 'en_cola'
+                    # Obtener tiempo restante del trabajo en C4 (Job #105)
+                    job_c4 = next(j for j in trabajos_activos if j['nodo'] == 'C4')
+                    slurm_tiempo_espera = job_c4['tiempo_restante']
+                    slurm_nodo_sugerido = "C4 (Exclusivo)"
+                    slurm_motivo = (
+                        f"El nodo exclusivo C4 está actualmente ocupado por el trabajo #{job_c4['id']} "
+                        f"del usuario '{job_c4['usuario']}'. El trabajo debe esperar en la cola de la partición exclusiva."
+                    )
+                    slurm_error_code = "PENDING (Resources: NodeOccupied)"
+                else:
+                    slurm_estado = 'ejecucion_inmediata'
+                    slurm_nodo_sugerido = "C4"
+                    slurm_motivo = "Nodo exclusivo C4 disponible. Ejecución inmediata asignada."
+                    slurm_error_code = "RUNNING (Allocated: C4)"
+        else:
+            # Destinado a partición compartida C1-C3
+            if not req_mpi:
+                # Mono-nodo: Debe caber en un único nodo compartido
+                if req_cpu > cpu_por_nodo or req_ram > ram_por_nodo or req_gpu > gpu_por_nodo:
+                    slurm_estado = 'sin_recursos'
+                    slurm_motivo = (
+                        f"La tarea excede el tamaño máximo para ejecución Mono-nodo "
+                        f"({cpu_por_nodo} Cores, {ram_por_nodo} GB RAM, {gpu_por_nodo} GPU). "
+                        f"Para ejecutar trabajos que superen estos límites, active la casilla 'Trabajo Multi-nodo (MPI)'."
+                    )
+                    slurm_error_code = "FAILED (PartitionNodeLimit)"
+                else:
+                    # Buscar nodo disponible
+                    nodo_asignado = None
+                    for n in nodos_list:
+                        if n['tipo'] == 'compartido' and n['cpu_disp'] >= req_cpu and n['ram_disp'] >= req_ram and n['gpu_disp'] >= req_gpu:
+                            nodo_asignado = n['nombre']
+                            break
+                    
+                    if nodo_asignado:
+                        slurm_estado = 'ejecucion_inmediata'
+                        slurm_nodo_sugerido = nodo_asignado
+                        slurm_motivo = f"Recursos concedidos en el nodo compartido {nodo_asignado} para ejecución inmediata."
+                        slurm_error_code = f"RUNNING (Allocated: {nodo_asignado})"
+                    else:
+                        # No cabe en ningún nodo individual libre en este momento.
+                        # Verificar si la suma total de recursos libres en C1-C3 es suficiente
+                        total_cpu_disp_shared = sum(n['cpu_disp'] for n in nodos_list if n['tipo'] == 'compartido')
+                        total_ram_disp_shared = sum(n['ram_disp'] for n in nodos_list if n['tipo'] == 'compartido')
+                        total_gpu_disp_shared = sum(n['gpu_disp'] for n in nodos_list if n['tipo'] == 'compartido')
+                        
+                        slurm_estado = 'en_cola'
+                        slurm_nodo_sugerido = "C1, C2 o C3 (Compartidos)"
+                        
+                        if total_cpu_disp_shared >= req_cpu and total_ram_disp_shared >= req_ram and total_gpu_disp_shared >= req_gpu:
+                            # Fragmentación!
+                            slurm_motivo = (
+                                "El trabajo está en espera debido a FRAGMENTACIÓN de recursos. "
+                                "Hay suficientes recursos libres en total, pero están divididos en diferentes nodos. "
+                                "Dado que la tarea es Mono-nodo, debe esperar a que un nodo libre acumule la capacidad requerida."
+                            )
+                            slurm_error_code = "PENDING (Resources: Fragmentation)"
+                        else:
+                            slurm_motivo = (
+                                "Recursos insuficientes en la partición compartida. "
+                                "El trabajo queda en espera en la cola principal de SLURM."
+                            )
+                            slurm_error_code = "PENDING (Resources)"
+                        
+                        # Determinar tiempo de espera estimado basándose en los trabajos activos
+                        if req_cpu <= 12:
+                            slurm_tiempo_espera = "00:05:00"
+                        elif req_cpu <= 24:
+                            slurm_tiempo_espera = "00:10:00"
+                        else:
+                            slurm_tiempo_espera = "00:15:00"
+            else:
+                # Trabajo Multi-nodo (MPI)
+                total_cpu_shared = sum(n['cpu_total'] for n in nodos_list if n['tipo'] == 'compartido')
+                total_ram_shared = sum(n['ram_total'] for n in nodos_list if n['tipo'] == 'compartido')
+                total_gpu_shared = sum(n['gpu_total'] for n in nodos_list if n['tipo'] == 'compartido')
+                
+                if req_cpu > total_cpu_shared or req_ram > total_ram_shared or req_gpu > total_gpu_shared:
+                    slurm_estado = 'sin_recursos'
+                    slurm_motivo = (
+                        f"La solicitud MPI excede los límites físicos acumulados de la partición compartida "
+                        f"({total_cpu_shared} Cores, {total_ram_shared} GB RAM, {total_gpu_shared} GPUs)."
+                    )
+                    slurm_error_code = "FAILED (PartitionLimit)"
+                else:
+                    # Evaluar si cabe en la suma total libre de C1-C3
+                    total_cpu_disp = sum(n['cpu_disp'] for n in nodos_list if n['tipo'] == 'compartido')
+                    total_ram_disp = sum(n['ram_disp'] for n in nodos_list if n['tipo'] == 'compartido')
+                    total_gpu_disp = sum(n['gpu_disp'] for n in nodos_list if n['tipo'] == 'compartido')
+                    
+                    if req_cpu <= total_cpu_disp and req_ram <= total_ram_disp and req_gpu <= total_gpu_disp:
+                        slurm_estado = 'ejecucion_inmediata'
+                        nodos_sug = [n['nombre'] for n in nodos_list if n['tipo'] == 'compartido' and n['cpu_disp'] > 0]
+                        slurm_nodo_sugerido = ", ".join(nodos_sug) + " (Distribuido)"
+                        slurm_motivo = "Ejecución MPI distribuida aprobada en nodos compartidos con capacidad ociosa."
+                        slurm_error_code = "RUNNING (MPI_Allocated)"
+                    else:
+                        slurm_estado = 'en_cola'
+                        slurm_nodo_sugerido = "C1, C2, C3 (MPI)"
+                        slurm_motivo = (
+                            "La partición compartida no tiene suficientes recursos libres acumulados en este momento. "
+                            "El trabajo MPI está esperando en la cola."
+                        )
+                        slurm_error_code = "PENDING (Resources: MPI)"
+                        slurm_tiempo_espera = "00:15:00"
+
+    # Generar curvas para el gráfico de estimación de colas y backfill de SLURM
+    curva_mono_cpu = [1, 4, 8, 12, 16, 20, 24, 28, 32]
+    curva_mono_wait = []
+    for c in curva_mono_cpu:
+        if c <= 12:
+            curva_mono_wait.append(0)
+        elif c <= 24:
+            curva_mono_wait.append(0)
+        elif c <= 28:
+            curva_mono_wait.append(10)
+        else:
+            curva_mono_wait.append(10)
+
+    curva_mpi_cpu = [4, 8, 16, 24, 32, 40, 48, 64, 80, 96]
+    curva_mpi_wait = []
+    for c in curva_mpi_cpu:
+        if c <= 44:
+            curva_mpi_wait.append(0)
+        elif c <= 52:
+            curva_mpi_wait.append(10)
+        elif c <= 64:
+            curva_mpi_wait.append(15)
+        elif c <= 72:
+            curva_mpi_wait.append(45)
+        else:
+            curva_mpi_wait.append(90)
+
+    # Calcular fragmentación de CPUs en la partición compartida
+    total_cpu_shared_disp = sum(n['cpu_disp'] for n in nodos_list if n['tipo'] == 'compartido')
+    max_cpu_block = max(n['cpu_disp'] for n in nodos_list if n['tipo'] == 'compartido')
+    fragmentacion_pct = round((1 - (max_cpu_block / total_cpu_shared_disp)) * 100, 1) if total_cpu_shared_disp else 0
 
     # 9. Estructurar el diccionario unificado final para Jinja2
     prediccion = {
@@ -951,15 +1211,24 @@ def analisis_predictivo():
         },
         'tasa': tasa,
         'meses': meses,
+        'nodos': nodos_list,
+        'fragmentacion_pct': fragmentacion_pct,
         'slurm': {
             'estado': slurm_estado,
             'motivo': slurm_motivo,
             'nodo_sugerido': slurm_nodo_sugerido,
             'tiempo_espera': slurm_tiempo_espera,
+            'error_code': slurm_error_code,
             'req_cpu': req_cpu,
             'req_ram': req_ram,
             'req_gpu': req_gpu,
-            'req_exclusivo': req_exclusivo
+            'req_exclusivo': req_exclusivo,
+            'req_mpi': req_mpi,
+            'req_time': req_time,
+            'curva_mono_cpu': curva_mono_cpu,
+            'curva_mono_wait': curva_mono_wait,
+            'curva_mpi_cpu': curva_mpi_cpu,
+            'curva_mpi_wait': curva_mpi_wait
         }
     }
 

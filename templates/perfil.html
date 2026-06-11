@@ -19,6 +19,26 @@
             <h4 class="logo-text">FNOGUERA CLUSTER</h4>
         </div>
 
+        <!-- ── Avatar del usuario en el sidebar ─────────────────── -->
+        <div class="text-center py-3 border-bottom border-secondary border-opacity-10 mb-3">
+            <a href="/perfil" class="text-decoration-none">
+                {% if user.foto_perfil and user.foto_perfil != 'default_avatar.png' %}
+                <img src="{{ url_for('static', filename='uploads/' + user.foto_perfil) }}"
+                     class="avatar-ring" width="52" height="52" alt="avatar"
+                     style="object-fit:cover;border-radius:50%">
+                {% else %}
+                <img src="https://ui-avatars.com/api/?name={{ user.nombre_apellido }}&background=4f46e5&color=fff&size=52&rounded=true&bold=true"
+                     class="avatar-ring" width="52" height="52" alt="avatar">
+                {% endif %}
+            </a>
+            <p class="fw-bold text-white mb-1 mt-2" style="font-size:0.85rem">{{ user.nombre_apellido }}</p>
+            <p class="x-small mb-1" style="color:#94a3b8">{{ user.correo_electronico }}</p>
+            <span class="badge rounded-pill" style="background:rgba(99,102,241,0.2);color:#818cf8;font-size:0.65rem;font-weight:600;letter-spacing:0.3px;padding:3px 10px">
+                <i class="fas {% if is_admin %}fa-crown{% else %}fa-user{% endif %} me-1" style="font-size:0.6rem"></i>
+                {% if is_admin %}ADMIN{% else %}USUARIO{% endif %}
+            </span>
+        </div>
+
         <div class="navbar-nav-group">
             <a href="/dashboard" class="navbar-link">
                 <i class="fas fa-chart-line"></i> Resumen

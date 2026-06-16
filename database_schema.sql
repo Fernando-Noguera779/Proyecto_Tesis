@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS solicitudes (
     software_requerido TEXT,
     estado CHARACTER VARYING(20) DEFAULT 'PENDIENTE'::character varying,
     observaciones TEXT,
+    usuario_creado BOOLEAN DEFAULT false,
     acceso_nodos BOOLEAN DEFAULT false,
     maquina_virtual BOOLEAN DEFAULT false,
     detalles_mv TEXT,

@@ -72,6 +72,7 @@ class Solicitud(db.Model):
     fecha_finalizacion_estimada = db.Column(db.Date)
     estado = db.Column(db.String(50), default='PENDIENTE')
     observaciones = db.Column(db.Text)
+    usuario_creado = db.Column(db.Boolean, default=False)
     acceso_nodos = db.Column(db.Boolean, default=False)
     maquina_virtual = db.Column(db.Boolean, default=False)
     detalles_mv = db.Column(db.Text)
@@ -81,7 +82,7 @@ class Solicitud(db.Model):
     
     usuario = db.relationship('Usuario', backref='solicitudes')
 
-    def __init__(self, id_usuario_solicitante, facultad, carrera, nombre_proyecto, asignatura_modulo, profesor_tutor, software_requerido, fecha_inicio, fecha_finalizacion_estimada, observaciones, fecha_solicitud, nombre_solicitante, correo_solicitante, estado='PENDIENTE'):
+    def __init__(self, id_usuario_solicitante, facultad, carrera, nombre_proyecto, asignatura_modulo, profesor_tutor, software_requerido, fecha_inicio, fecha_finalizacion_estimada, observaciones, fecha_solicitud, nombre_solicitante, correo_solicitante, estado='PENDIENTE', usuario_creado=False, acceso_nodos=False, maquina_virtual=False, detalles_mv=None, autorizado_por=None):
         self.id_usuario_solicitante = id_usuario_solicitante
         self.facultad = facultad
         self.carrera = carrera
@@ -96,6 +97,11 @@ class Solicitud(db.Model):
         self.nombre_solicitante = nombre_solicitante
         self.correo_solicitante = correo_solicitante
         self.estado = estado
+        self.usuario_creado = usuario_creado
+        self.acceso_nodos = acceso_nodos
+        self.maquina_virtual = maquina_virtual
+        self.detalles_mv = detalles_mv
+        self.autorizado_por = autorizado_por
 
 class SolicitudAprobada(db.Model):
     __tablename__ = 'solicitudes_aprobadas'
@@ -384,7 +390,12 @@ def nueva_solicitud():
                 fecha_solicitud=datetime.strptime(request.form.get('fecha_solicitud'), '%Y-%m-%d').date() if session.get('is_admin') and request.form.get('fecha_solicitud') else datetime.now().date(),
                 nombre_solicitante=request.form.get('nombre_solicitante'),
                 correo_solicitante=request.form.get('correo_solicitante'),
-                estado='PENDIENTE'
+                estado='PENDIENTE',
+                usuario_creado=request.form.get('usuario_creado') == 'on',
+                acceso_nodos=request.form.get('acceso_nodos') == 'on',
+                maquina_virtual=request.form.get('maquina_virtual') == 'on',
+                detalles_mv=request.form.get('detalles_mv'),
+                autorizado_por=request.form.get('autorizado_por')
             )
             db.session.add(nueva)
             db.session.commit()
@@ -584,9 +595,12 @@ def solicitud_pdf(id):
     gris = (100, 116, 139)
     negro = (30, 41, 59)
     
-    # Encabezado
+    # Encabezado con logo
+    logo_path = os.path.join(app.root_path, 'static', 'img', 'logo-FNC.png')
     pdf.set_fill_color(*azul)
     pdf.rect(0, 0, 210, 35, 'F')
+    if os.path.exists(logo_path):
+        pdf.image(logo_path, x=12, y=4, w=22)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font('Helvetica', 'B', 18)
     pdf.set_xy(10, 8)
@@ -1507,12 +1521,22 @@ def limpiar_notificaciones():
     return redirect(request.referrer or url_for('dashboard'))
 
 @app.context_processor
-def inject_notifications():
+def inject_globals():
+    ctx = {}
     if 'user_id' in session:
+        user = Usuario.query.get(session['user_id'])
+        ctx['user'] = user
+        ctx['is_admin'] = user.es_administrador if user else False
         notifs = Notificacion.query.filter_by(id_usuario_destino=session['user_id'], leida=False).order_by(Notificacion.fecha.desc()).limit(5).all()
         count = Notificacion.query.filter_by(id_usuario_destino=session['user_id'], leida=False).count()
-        return dict(unread_notifs=notifs, unread_count=count)
-    return dict(unread_notifs=[], unread_count=0)
+        ctx['unread_notifs'] = notifs
+        ctx['unread_count'] = count
+    else:
+        ctx['user'] = None
+        ctx['is_admin'] = False
+        ctx['unread_notifs'] = []
+        ctx['unread_count'] = 0
+    return ctx
 
 
 @app.route('/noticias')

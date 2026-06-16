@@ -27,86 +27,73 @@
 
 <body>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
-    <nav class="navbar-institutional">
+    <nav class="navbar-institutional" id="sidebar">
         <div class="navbar-brand-group">
             <button class="navbar-toggle-btn" id="sidebarToggle" aria-label="Menú">☰</button>
-            <h4 class="logo-text">FNOGUERA CLUSTER</h4>
+            <img src="{{ url_for('static', filename='img/logo-FNC.png') }}" alt="Logo" class="sidebar-logo">
+            <span class="logo-text">FNOGUERA<br>CLUSTER</span>
         </div>
+
+        {% if user %}
+        <div class="sidebar-user-section">
+            <a href="/perfil">
+                {% if user.foto_perfil and user.foto_perfil != 'default_avatar.png' %}
+                <img src="{{ url_for('static', filename='uploads/' + user.foto_perfil) }}" class="user-avatar" alt="avatar">
+                {% else %}
+                <img src="https://ui-avatars.com/api/?name={{ user.nombre_apellido }}&background=4f46e5&color=fff&size=36&rounded=true&bold=true" class="user-avatar" alt="avatar">
+                {% endif %}
+            </a>
+            <div class="user-info-text">
+                <p class="user-name">{{ user.nombre_apellido.split()[:2]|join(' ') }}</p>
+                <span class="badge user-badge" style="background:rgba(99,102,241,0.2);color:#818cf8;padding:2px 8px;align-self:flex-start">
+                    {% if is_admin %}ADMIN{% else %}USUARIO{% endif %}
+                </span>
+            </div>
+        </div>
+        {% endif %}
 
         <div class="navbar-nav-group">
             <a href="/dashboard" class="navbar-link">
-                <i class="fas fa-chart-line"></i> Resumen
+                <i class="fas fa-chart-line"></i><span>Resumen</span>
             </a>
             <a href="/noticias" class="navbar-link">
-                <i class="fas fa-newspaper"></i> Noticias
+                <i class="fas fa-newspaper"></i><span>Noticias</span>
             </a>
             <a href="/proyectos" class="navbar-link">
-                <i class="fas fa-project-diagram"></i> Proyectos
+                <i class="fas fa-project-diagram"></i><span>Proyectos</span>
             </a>
             <a href="/recursos" class="navbar-link active">
-                <i class="fas fa-server"></i> Recursos
+                <i class="fas fa-server"></i><span>Recursos</span>
             </a>
             {% if is_admin %}
             <a href="/analisis-predictivo" class="navbar-link">
-                <i class="fas fa-chart-bar"></i> Análisis
+                <i class="fas fa-chart-bar"></i><span>Análisis</span>
             </a>
             {% endif %}
             <a href="/solicitud" class="navbar-link">
-                <i class="fas fa-file-alt"></i> Solicitud
+                <i class="fas fa-file-alt"></i><span>Solicitud</span>
             </a>
             <a href="/perfil" class="navbar-link">
-                <i class="fas fa-user"></i> Perfil
+                <i class="fas fa-user"></i><span>Perfil</span>
             </a>
             {% if is_admin %}
             <a href="/usuarios" class="navbar-link">
-                <i class="fas fa-users"></i> Usuarios
+                <i class="fas fa-users"></i><span>Usuarios</span>
             </a>
             {% endif %}
         </div>
 
-        <div class="mt-auto">
+        <div class="mt-auto" style="position:relative">
             <button class="btn btn-link navbar-link border-0 w-100" onclick="toggleTheme()" title="Cambiar Tema">
-                <i class="fas fa-moon theme-toggle-icon"></i>
+                <i class="fas fa-moon"></i><span>Modo oscuro</span>
             </button>
-            <div class="dropdown dropup">
-                <button class="btn btn-link navbar-link position-relative border-0 w-100" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fas fa-bell"></i>
-                    {% if unread_count > 0 %}
-                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notif-badge">
-                        {{ unread_count }}
-                    </span>
-                    {% endif %}
-                </button>
-                <div class="dropdown-menu dropdown-menu-end glass-card border-0 shadow-lg p-0 notif-dropdown">
-                    <div class="p-3 border-bottom border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0 fw-bold text-white">Notificaciones</h6>
-                        <a href="/notificaciones/limpiar" class="x-small text-primary text-decoration-none">Marcar como leídas</a>
-                    </div>
-                    <div class="notif-list">
-                        {% for n in unread_notifs %}
-                        <div class="p-3 border-bottom border-secondary border-opacity-10 notif-item">
-                            <div class="d-flex align-items-start">
-                                <div class="bg-primary bg-opacity-10 p-2 rounded-circle me-3">
-                                    <i class="fas {% if n.tipo == 'SOLICITUD' %}fa-file-invoice{% else %}fa-info-circle{% endif %} text-primary small"></i>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <p class="mb-1 small text-white notif-message">{{ n.mensaje }}</p>
-                                    <span class="x-small text-muted">{{ n.fecha.strftime('%d/%m %H:%M') }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        {% else %}
-                        <div class="p-4 text-center">
-                            <i class="fas fa-bell-slash text-muted mb-2 d-block fa-lg"></i>
-                            <p class="text-muted small mb-0">No hay notificaciones nuevas</p>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
+            {% include '_notificaciones.html' %}
             <a href="/logout" class="navbar-link logout">
-                <i class="fas fa-sign-out-alt"></i> Salir
+                <i class="fas fa-sign-out-alt"></i><span>Salir</span>
             </a>
+            <button class="sidebar-pin-btn" id="sidebarPinBtn" title="Anclar sidebar">
+                <i class="fas fa-thumbtack"></i>
+            </button>
         </div>
     </nav>
 

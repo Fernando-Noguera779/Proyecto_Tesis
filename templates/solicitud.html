@@ -10,97 +10,283 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/logo-FNC.png') }}">
     <script src="{{ url_for('static', filename='js/darkmode.js') }}"></script>
+    <style>
+        @media print {
+            body { background: white !important; }
+            .navbar-institutional, .navbar-toggle-btn, .sidebar-overlay,
+            .form-actions, .btn, .no-print { display: none !important; }
+            .main-content { margin-left: 0 !important; padding: 0 !important; }
+            .glass-card { box-shadow: none !important; border: 1px solid #ddd !important; break-inside: avoid; }
+            .form-header { background: #1a3668 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .form-header .header-logo { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .internal-use-section { border: 2px dashed #999 !important; background: #f5f5f5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .form-control-premium { border: 1px solid #ccc !important; }
+            .section-title { border-bottom-color: #1a3668 !important; }
+            [data-theme="dark"] .glass-card { background: white !important; color: #000 !important; }
+            [data-theme="dark"] .form-control-premium { background: white !important; color: #000 !important; border-color: #ccc !important; }
+            [data-theme="dark"] .internal-use-section { background: #f5f5f5 !important; }
+            [data-theme="dark"] .internal-use-section .form-label { color: #475569 !important; }
+            [data-theme="dark"] .form-text-hint { color: #94a3b8 !important; }
+        }
+        .form-header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #0f264a 100%);
+            border-radius: 1.25rem;
+            padding: 2rem 2rem 1.5rem;
+            color: white;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        [data-theme="dark"] .form-header {
+            background: linear-gradient(135deg, #0f1d3a 0%, #071226 100%);
+        }
+        .form-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 300px;
+            height: 300px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 50%;
+        }
+        .form-header::after {
+            content: '';
+            position: absolute;
+            bottom: -40%;
+            left: -10%;
+            width: 200px;
+            height: 200px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 50%;
+        }
+        .form-header .header-logo {
+            height: 60px;
+            margin-bottom: 0.75rem;
+            filter: brightness(0) invert(1);
+        }
+        .form-header h5 {
+            font-weight: 700;
+            letter-spacing: 1px;
+            font-size: 1.1rem;
+            margin-bottom: 0.25rem;
+            position: relative;
+        }
+        .form-header .subtitle {
+            font-size: 0.8rem;
+            opacity: 0.85;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+        .form-header .doc-name {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(4px);
+            padding: 0.35rem 1.5rem;
+            border-radius: 100px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-top: 0.25rem;
+            position: relative;
+        }
+        .section-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--primary-color);
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--primary-color);
+        }
+        .internal-use-section {
+            background: #f8fafc;
+            border: 2px dashed #cbd5e1;
+            border-radius: 1.25rem;
+            padding: 1.75rem;
+            margin-top: 0.5rem;
+            transition: background 0.3s ease;
+        }
+        [data-theme="dark"] .internal-use-section {
+            background: rgba(255, 255, 255, 0.03);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+        .internal-use-section .section-title {
+            color: #475569;
+            border-bottom-color: #94a3b8;
+        }
+        [data-theme="dark"] .internal-use-section .section-title {
+            color: #94a3b8;
+            border-bottom-color: rgba(255, 255, 255, 0.15);
+        }
+        .internal-use-section .form-label {
+            color: #475569;
+        }
+        [data-theme="dark"] .internal-use-section .form-label {
+            color: #cbd5e1;
+        }
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            padding: 0.5rem 0;
+        }
+        .checkbox-group .form-check {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 140px;
+        }
+        .checkbox-group .form-check-input {
+            width: 1.2rem;
+            height: 1.2rem;
+            border-radius: 0.3rem;
+            border: 2px solid #cbd5e1;
+            cursor: pointer;
+            margin-top: 0;
+        }
+        .checkbox-group .form-check-input:checked {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        .checkbox-group .form-check-label {
+            font-weight: 500;
+            font-size: 0.9rem;
+            cursor: pointer;
+            color: inherit;
+        }
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+        .btn-outline-pdf {
+            background: transparent;
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+            border-radius: 0.75rem;
+            padding: 0.75rem 2rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .btn-outline-pdf:hover {
+            background: var(--primary-color);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(26, 54, 104, 0.2);
+        }
+        .required-asterisk {
+            color: #dc2626;
+            margin-left: 2px;
+        }
+        .form-text-hint {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-top: 0.25rem;
+        }
+        @media (max-width: 576px) {
+            .form-header {
+                padding: 1.25rem;
+            }
+            .form-header h5 {
+                font-size: 0.95rem;
+            }
+            .checkbox-group {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+            .form-actions {
+                flex-direction: column;
+            }
+            .form-actions .btn {
+                width: 100%;
+            }
+            .internal-use-section {
+                padding: 1rem;
+            }
+        }
+    </style>
 </head>
 
 <body>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
-    <nav class="navbar-institutional">
+    <nav class="navbar-institutional" id="sidebar">
         <div class="navbar-brand-group">
             <button class="navbar-toggle-btn" id="sidebarToggle" aria-label="Menú">☰</button>
-            <h4 class="logo-text">FNOGUERA CLUSTER</h4>
+            <img src="{{ url_for('static', filename='img/logo-FNC.png') }}" alt="Logo" class="sidebar-logo">
+            <span class="logo-text">FNOGUERA<br>CLUSTER</span>
         </div>
+
+        {% if user %}
+        <div class="sidebar-user-section">
+            <a href="/perfil">
+                {% if user.foto_perfil and user.foto_perfil != 'default_avatar.png' %}
+                <img src="{{ url_for('static', filename='uploads/' + user.foto_perfil) }}" class="user-avatar" alt="avatar">
+                {% else %}
+                <img src="https://ui-avatars.com/api/?name={{ user.nombre_apellido }}&background=4f46e5&color=fff&size=36&rounded=true&bold=true" class="user-avatar" alt="avatar">
+                {% endif %}
+            </a>
+            <div class="user-info-text">
+                <p class="user-name">{{ user.nombre_apellido.split()[:2]|join(' ') }}</p>
+                <span class="badge user-badge" style="background:rgba(99,102,241,0.2);color:#818cf8;padding:2px 8px;align-self:flex-start">
+                    {% if is_admin %}ADMIN{% else %}USUARIO{% endif %}
+                </span>
+            </div>
+        </div>
+        {% endif %}
 
         <div class="navbar-nav-group">
             <a href="/dashboard" class="navbar-link">
-                <i class="fas fa-chart-line"></i> Resumen
+                <i class="fas fa-chart-line"></i><span>Resumen</span>
             </a>
             <a href="/noticias" class="navbar-link">
-                <i class="fas fa-newspaper"></i> Noticias
+                <i class="fas fa-newspaper"></i><span>Noticias</span>
             </a>
             <a href="/proyectos" class="navbar-link">
-                <i class="fas fa-project-diagram"></i> Proyectos
+                <i class="fas fa-project-diagram"></i><span>Proyectos</span>
             </a>
             <a href="/recursos" class="navbar-link">
-                <i class="fas fa-server"></i> Recursos
+                <i class="fas fa-server"></i><span>Recursos</span>
             </a>
             {% if is_admin %}
             <a href="/analisis-predictivo" class="navbar-link">
-                <i class="fas fa-chart-bar"></i> Análisis
+                <i class="fas fa-chart-bar"></i><span>Análisis</span>
             </a>
             {% endif %}
             <a href="/solicitud" class="navbar-link active">
-                <i class="fas fa-file-alt"></i> Solicitud
+                <i class="fas fa-file-alt"></i><span>Solicitud</span>
             </a>
             <a href="/perfil" class="navbar-link">
-                <i class="fas fa-user"></i> Perfil
+                <i class="fas fa-user"></i><span>Perfil</span>
             </a>
             {% if is_admin %}
             <a href="/usuarios" class="navbar-link">
-                <i class="fas fa-users"></i> Usuarios
+                <i class="fas fa-users"></i><span>Usuarios</span>
             </a>
             {% endif %}
         </div>
 
-        <div class="mt-auto">
+        <div class="mt-auto" style="position:relative">
             <button class="btn btn-link navbar-link border-0 w-100" onclick="toggleTheme()" title="Cambiar Tema">
-                <i class="fas fa-moon theme-toggle-icon"></i>
+                <i class="fas fa-moon"></i><span>Modo oscuro</span>
             </button>
-            <div class="dropdown dropup">
-                <button class="btn btn-link navbar-link position-relative border-0 w-100" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fas fa-bell"></i>
-                    {% if unread_count > 0 %}
-                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notif-badge">
-                        {{ unread_count }}
-                    </span>
-                    {% endif %}
-                </button>
-                <div class="dropdown-menu dropdown-menu-end glass-card border-0 shadow-lg p-0 notif-dropdown">
-                    <div class="p-3 border-bottom border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0 fw-bold text-white">Notificaciones</h6>
-                        <a href="/notificaciones/limpiar" class="x-small text-primary text-decoration-none">Marcar como leídas</a>
-                    </div>
-                    <div class="notif-list">
-                        {% for n in unread_notifs %}
-                        <div class="p-3 border-bottom border-secondary border-opacity-10 notif-item">
-                            <div class="d-flex align-items-start">
-                                <div class="bg-primary bg-opacity-10 p-2 rounded-circle me-3">
-                                    <i class="fas {% if n.tipo == 'SOLICITUD' %}fa-file-invoice{% else %}fa-info-circle{% endif %} text-primary small"></i>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <p class="mb-1 small text-white notif-message">{{ n.mensaje }}</p>
-                                    <span class="x-small text-muted">{{ n.fecha.strftime('%d/%m %H:%M') }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        {% else %}
-                        <div class="p-4 text-center">
-                            <i class="fas fa-bell-slash text-muted mb-2 d-block fa-lg"></i>
-                            <p class="text-muted small mb-0">No hay notificaciones nuevas</p>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
+            {% include '_notificaciones.html' %}
             <a href="/logout" class="navbar-link logout">
-                <i class="fas fa-sign-out-alt"></i> Salir
+                <i class="fas fa-sign-out-alt"></i><span>Salir</span>
             </a>
+            <button class="sidebar-pin-btn" id="sidebarPinBtn" title="Anclar sidebar">
+                <i class="fas fa-thumbtack"></i>
+            </button>
         </div>
     </nav>
 
     <main class="main-content">
-        <header class="mb-5">
+        <header class="mb-4">
             <h2 class="fw-bold">Nueva Solicitud de Uso</h2>
-            <p class="text-muted">Complete el formulario para solicitar recursos del Cluster</p>
+            <p class="text-muted">Complete el formulario para solicitar recursos del Cluster de Computación Científica</p>
         </header>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -114,10 +300,25 @@
         {% endwith %}
 
         <div class="glass-card">
-            <form method="POST">
+            <!-- Encabezado Institucional -->
+            <div class="form-header mb-4">
+                <img src="{{ url_for('static', filename='img/logo-FNC.png') }}" alt="Logo FNC" class="header-logo">
+                <h5>FACULTAD POLITÉCNICA, UNA</h5>
+                <div class="subtitle">NÚCLEO DE INVESTIGACIÓN Y DESARROLLO TECNOLÓGICO<br>LABORATORIO DE COMPUTACIÓN CIENTÍFICA</div>
+                <div class="doc-name">Formulario de uso del Cluster de Computación Científica</div>
+            </div>
+
+            <form method="POST" id="solicitudForm">
+                <!-- Sección 1: Datos del Solicitante -->
+                <div class="section-title">
+                    <i class="fas fa-user me-2"></i>Datos del Solicitante
+                </div>
+
                 <div class="row g-4 mb-4">
                     <div class="col-md-4">
-                        <label for="fecha_solicitud" class="form-label fw-bold">Fecha de Solicitud</label>
+                        <label for="fecha_solicitud" class="form-label fw-bold">
+                            Fecha de Solicitud <span class="required-asterisk">*</span>
+                        </label>
                         {% if is_admin %}
                         <input type="date" id="fecha_solicitud" name="fecha_solicitud"
                             class="form-control form-control-premium" value="{{ now.strftime('%Y-%m-%d') }}"
@@ -130,84 +331,107 @@
                 </div>
 
                 <div class="row g-4 mb-4">
-                    <div class="col-md-12">
-                        <label for="nombre_solicitante" class="form-label fw-bold">Nombres y Apellidos</label>
+                    <div class="col-md-6">
+                        <label for="nombre_solicitante" class="form-label fw-bold">
+                            Nombres y Apellidos <span class="required-asterisk">*</span>
+                        </label>
                         <input type="text" id="nombre_solicitante" name="nombre_solicitante"
                             class="form-control form-control-premium" value="{{ session['user_name'] }}" required
-                            title="Nombre del solicitante">
+                            placeholder="Ingrese sus nombres y apellidos completos">
                     </div>
-                </div>
-
-                <div class="row g-4 mb-4">
-                    <div class="col-md-12">
-                        <label for="correo_solicitante" class="form-label fw-bold">Correo Electrónico</label>
+                    <div class="col-md-6">
+                        <label for="correo_solicitante" class="form-label fw-bold">
+                            Correo Electrónico <span class="required-asterisk">*</span>
+                        </label>
                         <input type="email" id="correo_solicitante" name="correo_solicitante"
                             class="form-control form-control-premium" value="{{ user_email }}" required
-                            title="Correo del solicitante">
+                            placeholder="correo@dominio.com">
                     </div>
                 </div>
 
                 <hr class="border-secondary opacity-25 my-4">
 
+                <!-- Sección 2: Datos Académicos -->
+                <div class="section-title">
+                    <i class="fas fa-graduation-cap me-2"></i>Datos Académicos
+                </div>
+
                 <div class="row g-4 mb-4">
                     <div class="col-md-6">
-                        <label for="facultad" class="form-label fw-bold">Facultad</label>
+                        <label for="facultad" class="form-label fw-bold">
+                            Facultad <span class="required-asterisk">*</span>
+                        </label>
                         <input type="text" id="facultad" name="facultad" class="form-control form-control-premium"
-                            placeholder="Ej: Facultad Politécnica, UNA" required>
+                            value="Facultad Politécnica" placeholder="Facultad Politécnica, UNA" required>
                     </div>
                     <div class="col-md-6">
-                        <label for="carrera" class="form-label fw-bold">Carrera</label>
+                        <label for="carrera" class="form-label fw-bold">
+                            Carrera <span class="required-asterisk">*</span>
+                        </label>
                         <input type="text" id="carrera" name="carrera" class="form-control form-control-premium"
                             placeholder="Ej: Ingeniería en Informática" required>
                     </div>
                 </div>
 
                 <div class="row g-4 mb-4">
-                    <div class="col-md-12">
-                        <label for="asignatura" class="form-label fw-bold">Asignatura/Módulo</label>
+                    <div class="col-md-6">
+                        <label for="asignatura" class="form-label fw-bold">Asignatura / Módulo</label>
                         <input type="text" id="asignatura" name="asignatura" class="form-control form-control-premium"
                             placeholder="Nombre de la asignatura o módulo">
                     </div>
-                </div>
-
-                <div class="row g-4 mb-4">
-                    <div class="col-md-12">
-                        <label for="tutor" class="form-label fw-bold">Profesor Tutor</label>
+                    <div class="col-md-6">
+                        <label for="tutor" class="form-label fw-bold">
+                            Profesor Tutor <span class="required-asterisk">*</span>
+                        </label>
                         <input type="text" id="tutor" name="tutor" class="form-control form-control-premium"
                             placeholder="Nombre completo del tutor responsable" required>
                     </div>
                 </div>
 
+                <hr class="border-secondary opacity-25 my-4">
+
+                <!-- Sección 3: Detalles del Proyecto -->
+                <div class="section-title">
+                    <i class="fas fa-flask me-2"></i>Detalles del Proyecto y Tiempos
+                </div>
+
+                <div class="row g-4 mb-4">
+                    <div class="col-md-12">
+                        <label for="proyecto" class="form-label fw-bold">
+                            Proyecto <span class="required-asterisk">*</span>
+                        </label>
+                        <textarea id="proyecto" name="proyecto" class="form-control form-control-premium" rows="4"
+                            placeholder="Describa detalladamente el proyecto a ejecutar en el Cluster" required></textarea>
+                    </div>
+                </div>
+
+                <div class="row g-4 mb-4">
+                    <div class="col-md-12">
+                        <label for="software" class="form-label fw-bold">Software Requerido</label>
+                        <textarea id="software" name="software" class="form-control form-control-premium" rows="3"
+                            placeholder="Liste las herramientas, librerías y software necesario (ej: Python 3.11, TensorFlow, CUDA 12, etc.)"></textarea>
+                        <div class="form-text-hint">Indique versiones específicas si son necesarias</div>
+                    </div>
+                </div>
+
                 <div class="row g-4 mb-4">
                     <div class="col-md-6">
-                        <label for="fecha_inicio" class="form-label fw-bold">Fecha de Inicio</label>
+                        <label for="fecha_inicio" class="form-label fw-bold">
+                            Fecha de Inicio <span class="required-asterisk">*</span>
+                        </label>
                         <input type="date" id="fecha_inicio" name="fecha_inicio"
                             class="form-control form-control-premium" required>
                     </div>
                     <div class="col-md-6">
-                        <label for="fecha_fin" class="form-label fw-bold">Fecha Finalización (estimada)</label>
-                        <input type="date" id="fecha_fin" name="fecha_fin" class="form-control form-control-premium"
-                            required>
+                        <label for="fecha_fin" class="form-label fw-bold">
+                            Fecha Finalización (estimada) <span class="required-asterisk">*</span>
+                        </label>
+                        <input type="date" id="fecha_fin" name="fecha_fin"
+                            class="form-control form-control-premium" required>
                     </div>
                 </div>
 
-                <div class="row g-4 mb-4">
-                    <div class="col-md-12">
-                        <label for="proyecto" class="form-label fw-bold">Proyecto</label>
-                        <textarea id="proyecto" name="proyecto" class="form-control form-control-premium" rows="3"
-                            placeholder="Descripción detallada del proyecto" required></textarea>
-                    </div>
-                </div>
-
-                <div class="row g-4 mb-4">
-                    <div class="col-md-12">
-                        <label for="software" class="form-label fw-bold">Software</label>
-                        <textarea id="software" name="software" class="form-control form-control-premium" rows="3"
-                            placeholder="Software y recursos específicos requeridos"></textarea>
-                    </div>
-                </div>
-
-                <div class="row g-4 mb-4">
+                <div class="row g-4 mb-3">
                     <div class="col-md-12">
                         <label for="observaciones" class="form-label fw-bold">Observaciones</label>
                         <textarea id="observaciones" name="observaciones" class="form-control form-control-premium"
@@ -215,15 +439,92 @@
                     </div>
                 </div>
 
-                <div class="mt-5 d-flex justify-content-end">
-                    <a href="/dashboard" class="btn btn-outline-light me-3 px-4">Cancelar</a>
-                    <button type="submit" class="btn btn-premium px-5">Enviar Solicitud</button>
+                <hr class="border-secondary opacity-25 my-4">
+
+                <!-- Sección 4: Uso Interno / Autorización -->
+                <div class="internal-use-section">
+                    <div class="section-title">
+                        <i class="fas fa-lock me-2"></i>Para Uso Interno / Autorización
+                    </div>
+
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-6">
+                            <label for="autorizado_por" class="form-label fw-bold">Autorizado por</label>
+                            <input type="text" id="autorizado_por" name="autorizado_por"
+                                class="form-control form-control-premium"
+                                placeholder="Nombre del responsable que autoriza">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold d-block">Firma</label>
+                            <div class="border border-2 border-dashed rounded-3 p-3 text-center"
+                                 style="border-style: dashed !important; min-height: 60px; display: flex; align-items: center; justify-content: center;">
+                                <span class="text-muted small">
+                                    <i class="fas fa-pen me-1"></i>Espacio para firma / aclaración
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-4 mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold d-block mb-2">Configuración de Acceso</label>
+                            <div class="checkbox-group">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="usuario_creado" name="usuario_creado">
+                                    <label class="form-check-label" for="usuario_creado">Usuario creado</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="acceso_nodos" name="acceso_nodos">
+                                    <label class="form-check-label" for="acceso_nodos">Acceso a nodos</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="maquina_virtual" name="maquina_virtual">
+                                    <label class="form-check-label" for="maquina_virtual">Máquina virtual</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-4">
+                        <div class="col-md-12">
+                            <label for="detalles_mv" class="form-label fw-bold">Características de la MV</label>
+                            <textarea id="detalles_mv" name="detalles_mv" class="form-control form-control-premium"
+                                rows="3" placeholder="Especifique CPU, RAM, Almacenamiento, Sistema Operativo, etc."></textarea>
+                            <div class="form-text-hint">Ej: 4 vCPU, 16 GB RAM, 100 GB SSD, Ubuntu 22.04 LTS</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botones de Acción -->
+                <div class="form-actions mt-5">
+                    <a href="/dashboard" class="btn btn-outline-secondary px-4">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </a>
+                    <button type="button" class="btn btn-outline-pdf px-4" onclick="window.print()">
+                        <i class="fas fa-file-pdf me-1"></i>Exportar a PDF
+                    </button>
+                    <button type="submit" class="btn btn-premium px-5">
+                        <i class="fas fa-paper-plane me-1"></i>Enviar Solicitud
+                    </button>
                 </div>
             </form>
         </div>
     </main>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var mvCheckbox = document.getElementById('maquina_virtual');
+            var mvDetails = document.getElementById('detalles_mv');
+            if (mvCheckbox && mvDetails) {
+                mvDetails.closest('.row').style.display = mvCheckbox.checked ? 'block' : 'none';
+                mvCheckbox.addEventListener('change', function () {
+                    mvDetails.closest('.row').style.display = this.checked ? 'block' : 'none';
+                });
+            }
+        });
+    </script>
 </body>
 
 </html>

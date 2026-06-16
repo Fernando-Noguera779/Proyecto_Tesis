@@ -252,8 +252,11 @@ label.form-label {
 .navbar-brand-group .sidebar-logo {
     height: 36px;
     width: auto;
+    object-fit: contain;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
     flex-shrink: 0;
-    filter: brightness(0) invert(1);
 }
 
 .navbar-brand-group .logo-text {

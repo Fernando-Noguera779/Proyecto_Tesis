@@ -10,7 +10,32 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from datetime import datetime, timedelta
 import os
+import subprocess
+import threading
+import shlex
+import signal
+import tempfile
+import select
+import struct
 from werkzeug.utils import secure_filename
+from flask_socketio import SocketIO, emit
+
+# ── PTY conditionally available (Linux only) ──
+try:
+    import pty
+    import fcntl
+    import termios
+    _HAS_PTY = True
+except ImportError:
+    _HAS_PTY = False
+
+# ── Fix Flask 3.x compat: RequestContext.session has no setter ──
+from flask.ctx import RequestContext
+if not hasattr(RequestContext, '_session_setter'):
+    def _session_setter(self, value):
+        object.__setattr__(self, '_session', value)
+    RequestContext.session = property(RequestContext.session.fget, _session_setter)
+    RequestContext._session_setter = True
 
 app = Flask(__name__)
 app.secret_key = 'cluster_nidtec_secret'
@@ -39,6 +64,11 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
+
+# ── Almacén de terminales activas (sid -> {master_fd, pid, thread}) ──
+_active_terminals = {}
+_active_terminals_lock = threading.Lock()
 
 # --- Modelos ---
 class Usuario(db.Model):
@@ -1207,5 +1237,265 @@ def eliminar_noticia(id):
     
     return redirect(url_for('noticias'))
 
+# ═══════════════════════════════════════════════════════════════════════
+#   OPEN CODE ADMIN PANEL — Job Submission + Embedded Terminal
+# ═══════════════════════════════════════════════════════════════════════
+
+@app.route('/admin/open-code')
+@app.route('/administracion')
+def admin_open_code():
+    """Renderiza el panel de administración Open Code con formulario y terminal."""
+    if 'user_id' not in session or not session.get('is_admin'):
+        flash('Acceso no autorizado', 'danger')
+        return redirect(url_for('index'))
+    user_id = session.get('user_id')
+    unread_count, unread_notifs = get_unread_notifications(user_id)
+    return render_template(
+        'administracion.html',
+        is_admin=True,
+        unread_count=unread_count,
+        unread_notifs=unread_notifs
+    )
+
+@app.route('/api/submit-job', methods=['POST'])
+def submit_job():
+    """Recibe datos del formulario, genera script SBATCH y ejecuta sbatch."""
+    if 'user_id' not in session or not session.get('is_admin'):
+        return jsonify({'error': 'No autorizado'}), 401
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Datos JSON requeridos'}), 400
+
+    # Validar campos obligatorios
+    required = ['job_name', 'partition', 'nodes', 'ntasks_per_node', 'memory', 'walltime']
+    for field in required:
+        if field not in data or not str(data[field]).strip():
+            return jsonify({'error': f'Campo requerido: {field}'}), 400
+
+    job_name  = str(data['job_name']).strip()
+    partition = str(data['partition']).strip()
+    nodes     = str(data['nodes']).strip()
+    ntasks    = str(data['ntasks_per_node']).strip()
+    memory    = str(data['memory']).strip()
+    walltime  = str(data['walltime']).strip()
+    script_content = data.get('script_content', '').strip()
+
+    # Validar valores numéricos
+    try:
+        ni = int(nodes); nti = int(ntasks); mi = int(memory)
+        if ni < 1 or nti < 1 or mi < 1: raise ValueError
+    except ValueError:
+        return jsonify({'error': 'Nodos, tareas por nodo y memoria deben ser enteros positivos'}), 400
+
+    # Validar walltime HH:MM:SS
+    if not re.match(r'^\d{2}:\d{2}:\d{2}$', walltime):
+        return jsonify({'error': 'Walltime debe tener formato HH:MM:SS'}), 400
+
+    # Validar partición (solo alfanumérico + guiones)
+    if not re.match(r'^[a-zA-Z0-9_\-]+$', partition):
+        return jsonify({'error': 'Partición contiene caracteres no válidos'}), 400
+
+    # Validar nombre del job
+    if not re.match(r'^[a-zA-Z0-9_\-.\s]+$', job_name):
+        return jsonify({'error': 'Nombre del job contiene caracteres no válidos'}), 400
+
+    # ── Generar script SBATCH de forma segura ──
+    sbatch_lines = [
+        '#!/bin/bash',
+        f'#SBATCH --job-name={shlex.quote(job_name)}',
+        f'#SBATCH --partition={shlex.quote(partition)}',
+        f'#SBATCH --nodes={ni}',
+        f'#SBATCH --ntasks-per-node={nti}',
+        f'#SBATCH --mem={mi}M',
+        f'#SBATCH --time={shlex.quote(walltime)}',
+        '#SBATCH --output=%j.out',
+        '#SBATCH --error=%j.err',
+        '',
+        'echo "Job iniciado en $(hostname) a las $(date)"',
+        'echo "SLURM_JOB_ID=$SLURM_JOB_ID"',
+        'echo "SLURM_NODELIST=$SLURM_NODELIST"',
+        '',
+    ]
+
+    if script_content:
+        sbatch_lines.append('# === Script del usuario ===')
+        sbatch_lines.append(script_content)
+    else:
+        sbatch_lines.append('# === Comando por defecto ===')
+        sbatch_lines.append('echo "No se proporcionó script."')
+        sbatch_lines.append('hostname')
+        sbatch_lines.append('scontrol show job $SLURM_JOB_ID')
+
+    full_script = '\n'.join(sbatch_lines)
+
+    # Escribir a archivo temporal y ejecutar sbatch
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False, encoding='utf-8') as f:
+            f.write(full_script)
+            tmp_path = f.name
+
+        result = subprocess.run(
+            ['sbatch', tmp_path],
+            capture_output=True, text=True, timeout=30, cwd='/tmp'
+        )
+
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+
+        if result.returncode != 0:
+            return jsonify({'error': f'sbatch falló: {result.stderr.strip()}'}), 500
+
+        m = re.search(r'Submitted batch job (\d+)', result.stdout)
+        job_id = m.group(1) if m else 'desconocido'
+
+        return jsonify({
+            'success': True,
+            'job_id': job_id,
+            'message': f'Job {job_name} enviado (ID: {job_id})'
+        })
+
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': 'sbatch timed out (30s)'}), 504
+    except FileNotFoundError:
+        return jsonify({'error': 'sbatch no encontrado. ¿Slurm instalado?'}), 500
+    except Exception as e:
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
+
+
+# ── Terminal WebSocket Handlers ──────────────────────────────────────
+
+def _pty_read_loop(sid, master_fd, pid):
+    """Hilo lector del PTY → envía salida al cliente vía SocketIO."""
+    try:
+        while True:
+            r, _, _ = select.select([master_fd], [], [], 0.1)
+            if r:
+                try:
+                    out = os.read(master_fd, 4096)
+                except OSError:
+                    break
+                if not out:
+                    break
+                socketio.emit('terminal:output', {'data': out.decode('utf-8', errors='replace')}, to=sid)
+    except Exception:
+        pass
+    finally:
+        _cleanup_terminal(sid)
+
+def _cleanup_terminal(sid):
+    """Limpia recursos de una terminal activa."""
+    with _active_terminals_lock:
+        entry = _active_terminals.pop(sid, None)
+    if entry:
+        mfd, pid = entry['master_fd'], entry['pid']
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except Exception:
+            pass
+        try:
+            os.close(mfd)
+        except Exception:
+            pass
+        try:
+            os.waitpid(pid, 0)
+        except Exception:
+            pass
+
+@socketio.on('connect')
+def ws_connect():
+    """Solo admins pueden conectar WebSocket."""
+    if 'user_id' not in session or not session.get('is_admin'):
+        return False
+
+@socketio.on('terminal:start')
+def ws_terminal_start(data):
+    """Inicia una sesión de terminal PTY con bash."""
+    if not _HAS_PTY:
+        emit('terminal:output', {'data': 'Error: PTY no disponible (solo Linux)\n'})
+        return
+
+    sid = request.sid
+    _cleanup_terminal(sid)
+
+    try:
+        cols = max(10, min(200, int(data.get('cols', 80))))
+        rows = max(5,  min(100, int(data.get('rows', 24))))
+    except (ValueError, TypeError):
+        cols, rows = 80, 24
+
+    try:
+        mfd, sfd = pty.openpty()
+
+        try:
+            fcntl.ioctl(mfd, termios.TIOCSWINSZ, struct.pack('HHHH', rows, cols, 0, 0))
+        except Exception:
+            pass
+
+        pid = os.fork()
+        if pid == 0:
+            # ── Hijo ──
+            os.close(mfd)
+            os.setsid()
+            for fd in (0, 1, 2):
+                os.dup2(sfd, fd)
+            if sfd > 2:
+                os.close(sfd)
+            try:
+                os.chdir(os.environ.get('HOME', '/root'))
+            except Exception:
+                pass
+            os.execve('/bin/bash', ['/bin/bash', '--login'], os.environ)
+
+        # ── Padre ──
+        os.close(sfd)
+
+        with _active_terminals_lock:
+            _active_terminals[sid] = {'master_fd': mfd, 'pid': pid}
+
+        t = threading.Thread(target=_pty_read_loop, args=(sid, mfd, pid), daemon=True)
+        with _active_terminals_lock:
+            _active_terminals[sid]['thread'] = t
+        t.start()
+
+        emit('terminal:started', {'ok': True})
+
+    except Exception as e:
+        emit('terminal:output', {'data': f'Error al iniciar terminal: {str(e)}\n'})
+
+@socketio.on('terminal:input')
+def ws_terminal_input(data):
+    """Escribe la entrada del usuario al PTY."""
+    sid = request.sid
+    with _active_terminals_lock:
+        entry = _active_terminals.get(sid)
+    if entry:
+        try:
+            os.write(entry['master_fd'], data['data'].encode())
+        except Exception:
+            _cleanup_terminal(sid)
+
+@socketio.on('terminal:resize')
+def ws_terminal_resize(data):
+    """Ajusta el tamaño de la terminal PTY."""
+    sid = request.sid
+    with _active_terminals_lock:
+        entry = _active_terminals.get(sid)
+    if entry:
+        try:
+            c = max(10, min(200, int(data.get('cols', 80))))
+            r = max(5,  min(100, int(data.get('rows', 24))))
+            fcntl.ioctl(entry['master_fd'], termios.TIOCSWINSZ, struct.pack('HHHH', r, c, 0, 0))
+        except Exception:
+            pass
+
+@socketio.on('disconnect')
+def ws_disconnect():
+    """Limpia la terminal al desconectarse."""
+    _cleanup_terminal(request.sid)
+
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    socketio.run(app, debug=True, port=5000, allow_unsafe_werkzeug=True)

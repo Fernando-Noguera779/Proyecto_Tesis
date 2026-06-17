@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FNOGUERA CLUSTER - Panel de Administración</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/logo-FNC.png') }}">
+    <script src="{{ url_for('static', filename='js/darkmode.js') }}"></script>
+    <style>
+        .split-layout {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 1.5rem;
+            min-height: calc(100vh - 130px);
+        }
+
+        .oc-card {
+            background: var(--card-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 1rem;
+            padding: 1.25rem;
+        }
+
+        .oc-card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding-bottom: 0.75rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--glass-border);
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: var(--text-main);
+        }
+
+        .oc-card-header i {
+            color: var(--primary-color);
+            font-size: 1.1rem;
+        }
+
+        .form-section {
+            overflow-y: auto;
+            max-height: calc(100vh - 130px);
+            padding-right: 4px;
+        }
+
+        .form-section::-webkit-scrollbar {
+            width: 4px;
+        }
+        .form-section::-webkit-scrollbar-thumb {
+            background: var(--glass-border);
+            border-radius: 4px;
+        }
+
+        .oc-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 0.3rem;
+        }
+
+        .oc-input, .oc-select {
+            background: var(--bg-dark);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            border-radius: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+            width: 100%;
+            transition: border-color 0.2s;
+        }
+        .oc-input:focus, .oc-select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(96,165,250,0.15);
+        }
+        .oc-input::placeholder {
+            color: var(--text-muted);
+            opacity: 0.6;
+        }
+
+        .oc-btn {
+            background: var(--primary-color);
+            color: #fff;
+            border: none;
+            border-radius: 0.5rem;
+            padding: 0.55rem 1.25rem;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.25s;
+            width: 100%;
+        }
+        .oc-btn:hover {
+            filter: brightness(1.15);
+            transform: translateY(-1px);
+        }
+        .oc-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .oc-btn-secondary {
+            background: transparent;
+            border: 1px solid var(--glass-border);
+            color: var(--text-muted);
+        }
+        .oc-btn-secondary:hover {
+            background: var(--glass-border);
+            color: var(--text-main);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        .form-row-tri {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        .form-group {
+            margin-bottom: 0.75rem;
+        }
+
+        #terminal-container {
+            height: 100%;
+            min-height: calc(100vh - 130px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        #terminal-container .oc-card {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        #terminal-container .oc-card-body {
+            flex: 1;
+            padding: 0.5rem;
+            background: #0d1117;
+            border-radius: 0 0 1rem 1rem;
+            min-height: 400px;
+        }
+
+        #xterm-terminal {
+            height: 100%;
+            width: 100%;
+        }
+        #xterm-terminal .xterm {
+            height: 100%;
+            padding: 4px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .status-badge.connected {
+            background: rgba(34,197,94,0.15);
+            color: #22c55e;
+        }
+        .status-badge.disconnected {
+            background: rgba(239,68,68,0.15);
+            color: #ef4444;
+        }
+
+        .status-indicator-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-badge.connected .status-indicator-dot {
+            background: #22c55e;
+            animation: pulse-dot 2s infinite;
+        }
+        .status-badge.disconnected .status-indicator-dot {
+            background: #ef4444;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .result-toast {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            z-index: 9999;
+            padding: 1rem 1.5rem;
+            border-radius: 0.75rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.4s ease;
+            pointer-events: none;
+        }
+        .result-toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .result-toast.success {
+            background: #065f46;
+            color: #d1fae5;
+        }
+        .result-toast.error {
+            background: #7f1d1d;
+            color: #fee2e2;
+        }
+
+        .code-preview {
+            background: #0d1117;
+            color: #c9d1d9;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            white-space: pre-wrap;
+            max-height: 120px;
+            overflow-y: auto;
+            margin-top: 0.5rem;
+            display: none;
+        }
+
+        @media (max-width: 1024px) {
+            .split-layout {
+                grid-template-columns: 1fr;
+            }
+            .form-section {
+                max-height: none;
+            }
+            #terminal-container {
+                min-height: 500px;
+            }
+            #terminal-container .oc-card-body {
+                min-height: 400px;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .form-row, .form-row-tri {
+                grid-template-columns: 1fr;
+            }
+            .split-layout {
+                gap: 1rem;
+            }
+            .oc-card {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <nav class="navbar-institutional" id="sidebar">
+        <div class="navbar-brand-group">
+            <button class="navbar-toggle-btn" id="sidebarToggle" aria-label="Menu">☰</button>
+            <img src="{{ url_for('static', filename='img/logo-FNC.png') }}" alt="Logo" class="sidebar-logo">
+            <span class="logo-text">FNOGUERA<br>CLUSTER</span>
+        </div>
+        {% if user %}
+        <div class="sidebar-user-section">
+            <a href="/perfil">
+                {% if user.foto_perfil and user.foto_perfil != 'default_avatar.png' %}
+                <img src="{{ url_for('static', filename='uploads/' + user.foto_perfil) }}" class="user-avatar" alt="avatar">
+                {% else %}
+                <img src="https://ui-avatars.com/api/?name={{ user.nombre_apellido }}&background=4f46e5&color=fff&size=36&rounded=true&bold=true" class="user-avatar" alt="avatar">
+                {% endif %}
+            </a>
+            <div class="user-info-text">
+                <p class="user-name">{{ user.nombre_apellido.split()[:2]|join(' ') }}</p>
+                <span class="badge user-badge" style="background:rgba(99,102,241,0.2);color:#818cf8;padding:2px 8px;align-self:flex-start">ADMIN</span>
+            </div>
+        </div>
+        {% endif %}
+        <div class="navbar-nav-group">
+            <a href="/dashboard" class="navbar-link"><i class="fas fa-chart-line"></i><span>Resumen</span></a>
+            <a href="/noticias" class="navbar-link"><i class="fas fa-newspaper"></i><span>Noticias</span></a>
+            <a href="/proyectos" class="navbar-link"><i class="fas fa-project-diagram"></i><span>Proyectos</span></a>
+            <a href="/recursos" class="navbar-link"><i class="fas fa-server"></i><span>Recursos</span></a>
+            <a href="/solicitud" class="navbar-link"><i class="fas fa-file-alt"></i><span>Solicitud</span></a>
+            <a href="/perfil" class="navbar-link"><i class="fas fa-user"></i><span>Perfil</span></a>
+            <a href="/terminal" class="navbar-link"><i class="fas fa-terminal"></i><span>Terminal SSH</span></a>
+            {% if is_admin %}
+            <a href="/usuarios" class="navbar-link"><i class="fas fa-users"></i><span>Usuarios</span></a>
+            <a href="/admin/open-code" class="navbar-link active"><i class="fas fa-code"></i><span>Panel de Administración</span></a>
+            {% endif %}
+        </div>
+        <div class="mt-auto" style="position:relative">
+            <button class="btn btn-link navbar-link border-0 w-100" onclick="toggleTheme()" title="Cambiar Tema">
+                <i class="fas fa-moon"></i><span>Modo oscuro</span>
+            </button>
+            {% include '_notificaciones.html' %}
+            <a href="/logout" class="navbar-link logout">
+                <i class="fas fa-sign-out-alt"></i><span>Salir</span>
+            </a>
+            <button class="sidebar-pin-btn" id="sidebarPinBtn" title="Anclar sidebar">
+                <i class="fas fa-thumbtack"></i>
+            </button>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <header class="mb-3 d-flex justify-content-between align-items-center">
+            <div>
+                <h4 class="fw-bold mb-0"><i class="fas fa-code me-2" style="color:var(--primary-color)"></i>Panel de Administración</h4>
+                <p class="text-muted small mb-0">Panel de administración — Envío de trabajos + Terminal Ubuntu Kepri</p>
+            </div>
+            <div>
+                <span class="status-badge disconnected" id="termStatus">
+                    <span class="status-indicator-dot"></span>
+                    <span id="termStatusText">Desconectado</span>
+                </span>
+            </div>
+        </header>
+
+        <div class="split-layout">
+            <div class="form-section">
+                <div class="oc-card">
+                    <div class="oc-card-header">
+                        <i class="fas fa-tasks"></i> Envío de Trabajo (Job Submission)
+                    </div>
+
+                    <div class="form-group">
+                        <label class="oc-label" for="jobName">Nombre del Job</label>
+                        <input class="oc-input" id="jobName" placeholder="ej: mi_simulacion" value="mi_trabajo">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="oc-label" for="partition">Partición</label>
+                        <select class="oc-select" id="partition">
+                            <option value="normal">normal</option>
+                            <option value="gpu">gpu</option>
+                            <option value="highmem">highmem</option>
+                            <option value="debug">debug</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="oc-label" for="nodes">Nodos</label>
+                            <input class="oc-input" id="nodes" type="number" min="1" value="1">
+                        </div>
+                        <div class="form-group">
+                            <label class="oc-label" for="ntasks">Tareas/Nodo</label>
+                            <input class="oc-input" id="ntasks" type="number" min="1" value="1">
+                        </div>
+                    </div>
+
+                    <div class="form-row-tri">
+                        <div class="form-group">
+                            <label class="oc-label" for="memory">Memoria (MB)</label>
+                            <input class="oc-input" id="memory" type="number" min="1" value="1024">
+                        </div>
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label class="oc-label" for="walltime">Walltime (HH:MM:SS)</label>
+                            <input class="oc-input" id="walltime" placeholder="01:00:00" value="01:00:00">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="oc-label" for="scriptContent">Script personalizado (.sh / .py)</label>
+                        <textarea class="oc-input" id="scriptContent" rows="4" placeholder="#!/bin/bash&#10;echo &#34;Hola Cluster!&#34;&#10;srun hostname" style="resize:vertical;font-family:'Courier New',monospace;font-size:0.8rem;"></textarea>
+                    </div>
+
+                    <div class="code-preview" id="sbatchPreview"></div>
+
+                    <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+                        <button class="oc-btn" id="submitBtn" onclick="submitJob()">
+                            <i class="fas fa-paper-plane me-1"></i> Enviar Job
+                        </button>
+                        <button class="oc-btn oc-btn-secondary" onclick="previewScript()" style="width:auto;padding:0.55rem 1rem;">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="terminal-container">
+                <div class="oc-card">
+                    <div class="oc-card-header" style="padding:0.6rem 1rem;margin-bottom:0;">
+                        <i class="fas fa-terminal"></i>
+                        <span>Terminal Ubuntu Kepri</span>
+                        <div class="ms-auto small text-muted">
+                            <span id="termInfo">conectando...</span>
+                        </div>
+                    </div>
+                    <div class="oc-card-body" id="xterm-wrapper">
+                        <div id="xterm-terminal"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="result-toast" id="resultToast"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/socket.io@4.8.1/client-dist/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
+    <script>
+        // ── Xterm.js + Socket.IO Terminal ──────────────────────────────
+        const termEl = document.getElementById('xterm-terminal');
+        const termStatus = document.getElementById('termStatus');
+        const termStatusText = document.getElementById('termStatusText');
+        const termInfo = document.getElementById('termInfo');
+
+        const term = new Terminal({
+            cursorBlink: true,
+            cursorStyle: 'block',
+            fontSize: 13,
+            fontFamily: "'Courier New', 'Consolas', monospace",
+            theme: {
+                background: '#0d1117',
+                foreground: '#c9d1d9',
+                cursor: '#58a6ff',
+                selectionBackground: '#264f78',
+                black: '#484f58',
+                red: '#ff7b72',
+                green: '#3fb950',
+                yellow: '#d29922',
+                blue: '#58a6ff',
+                magenta: '#bc8cff',
+                cyan: '#39c5cf',
+                white: '#b1bac4',
+                brightBlack: '#6e7681',
+                brightRed: '#ffa198',
+                brightGreen: '#56d364',
+                brightYellow: '#e3b341',
+                brightBlue: '#79c0ff',
+                brightMagenta: '#d2a8ff',
+                brightCyan: '#56d4dd',
+                brightWhite: '#f0f6fc',
+            },
+            allowTransparency: false,
+            scrollback: 5000,
+        });
+
+        const fitAddon = new FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+        term.open(termEl);
+        fitAddon.fit();
+
+        // ── Socket.IO ──────────────────────────────────────────────────
+        const socket = io({
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionAttempts: 10,
+        });
+
+        let terminalReady = false;
+
+        socket.on('connect', () => {
+            termStatus.className = 'status-badge connected';
+            termStatusText.textContent = 'Conectado';
+            termInfo.textContent = 'iniciando terminal...';
+
+            socket.emit('terminal:start', {
+                cols: term.cols,
+                rows: term.rows,
+            });
+        });
+
+        socket.on('terminal:started', () => {
+            terminalReady = true;
+            termInfo.textContent = 'bash - terminal interactiva';
+            term.focus();
+        });
+
+        socket.on('terminal:output', (data) => {
+            term.write(data.data);
+        });
+
+        socket.on('disconnect', () => {
+            termStatus.className = 'status-badge disconnected';
+            termStatusText.textContent = 'Desconectado';
+            termInfo.textContent = 'desconectado';
+            terminalReady = false;
+        });
+
+        socket.on('connect_error', () => {
+            termStatus.className = 'status-badge disconnected';
+            termStatusText.textContent = 'Error conexión';
+            termInfo.textContent = 'error de conexión';
+            terminalReady = false;
+            term.writeln('\r\n\x1b[1;31mError:\x1b[0m No se pudo conectar al WebSocket.');
+            term.writeln('Verifique que el servidor Flask esté corriendo con SocketIO.');
+        });
+
+        // ── Input: del navegador al servidor ──────────────────────────
+        term.onData((data) => {
+            if (terminalReady) {
+                socket.emit('terminal:input', { data: data });
+            }
+        });
+
+        // ── Resize ─────────────────────────────────────────────────────
+        const debounceResize = (() => {
+            let timer;
+            return () => {
+                clearTimeout(timer);
+                timer = setTimeout(() => {
+                    fitAddon.fit();
+                    if (terminalReady) {
+                        socket.emit('terminal:resize', {
+                            cols: term.cols,
+                            rows: term.rows,
+                        });
+                    }
+                }, 250);
+            };
+        })();
+
+        window.addEventListener('resize', debounceResize);
+
+        const wrapper = document.getElementById('xterm-wrapper');
+        if (wrapper) {
+            const ro = new ResizeObserver(debounceResize);
+            ro.observe(wrapper);
+        }
+
+        // ── Job Submission ─────────────────────────────────────────────
+        function getFormData() {
+            return {
+                job_name: document.getElementById('jobName').value.trim(),
+                partition: document.getElementById('partition').value,
+                nodes: document.getElementById('nodes').value,
+                ntasks_per_node: document.getElementById('ntasks').value,
+                memory: document.getElementById('memory').value,
+                walltime: document.getElementById('walltime').value.trim(),
+                script_content: document.getElementById('scriptContent').value.trim(),
+            };
+        }
+
+        function showToast(message, type) {
+            const t = document.getElementById('resultToast');
+            t.textContent = message;
+            t.className = 'result-toast ' + type + ' show';
+            clearTimeout(t._hide);
+            t._hide = setTimeout(() => { t.classList.remove('show'); }, 5000);
+        }
+
+        function previewScript() {
+            const data = getFormData();
+            const preview = document.getElementById('sbatchPreview');
+            const lines = [
+                '#!/bin/bash',
+                '#SBATCH --job-name=' + data.job_name,
+                '#SBATCH --partition=' + data.partition,
+                '#SBATCH --nodes=' + data.nodes,
+                '#SBATCH --ntasks-per-node=' + data.ntasks_per_node,
+                '#SBATCH --mem=' + data.memory + 'M',
+                '#SBATCH --time=' + data.walltime,
+                '#SBATCH --output=%j.out',
+                '#SBATCH --error=%j.err',
+                '',
+            ];
+            if (data.script_content) {
+                lines.push('# === Script del usuario ===');
+                lines.push(data.script_content);
+            } else {
+                lines.push('hostname');
+                lines.push('scontrol show job $SLURM_JOB_ID');
+            }
+            preview.textContent = lines.join('\n');
+            preview.style.display = 'block';
+        }
+
+        async function submitJob() {
+            const btn = document.getElementById('submitBtn');
+            const data = getFormData();
+
+            if (!data.job_name || !data.partition || !data.nodes || !data.ntasks_per_node || !data.memory || !data.walltime) {
+                showToast('Complete todos los campos obligatorios.', 'error');
+                return;
+            }
+
+            const wtRe = /^\d{2}:\d{2}:\d{2}$/;
+            if (!wtRe.test(data.walltime)) {
+                showToast('Walltime debe tener formato HH:MM:SS', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Enviando...';
+
+            try {
+                const res = await fetch('/api/submit-job', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                });
+                const result = await res.json();
+
+                if (result.success) {
+                    showToast(result.message, 'success');
+                    term.writeln('\r\n\x1b[1;32m[Panel de Administración]\x1b[0m Job enviado: ' + result.job_id);
+                } else {
+                    showToast(result.error || 'Error al enviar job', 'error');
+                    term.writeln('\r\n\x1b[1;31m[Panel de Administración Error]\x1b[0m ' + (result.error || 'Error desconocido'));
+                }
+            } catch (err) {
+                showToast('Error de red: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i> Enviar Job';
+            }
+        }
+
+        // ── Enter en inputs → submit ──────────────────────────────────
+        document.querySelectorAll('.oc-input').forEach(el => {
+            el.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    submitJob();
+                }
+            });
+        });
+
+        // ── Cerrar el preview al hacer clic fuera ──────────────────────
+        document.addEventListener('click', (e) => {
+            const preview = document.getElementById('sbatchPreview');
+            if (preview.style.display === 'block' && !e.target.closest('.oc-card')) {
+                preview.style.display = 'none';
+            }
+        });
+
+        console.log('Panel de Administración Admin Panel loaded.');
+    </script>
+</body>
+</html>

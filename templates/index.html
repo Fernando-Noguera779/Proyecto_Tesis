@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CLUSTER-NIDTEC | Sistema de Gesti&oacute;n de Cl&uacute;ster</title>
+    <title>FNOGUERA CLUSTER | Sistema de Gesti&oacute;n de Cl&uacute;ster</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -19,12 +19,12 @@
             <span class="d-brand-icon">
                 <i class="fas fa-server"></i>
             </span>
-            <span class="d-brand-text">CLUSTER<span class="d-brand-accent">-NIDTEC</span></span>
+            <span class="d-brand-text">FNOGUERA<span class="d-brand-accent"> CLUSTER</span></span>
         </a>
         <div class="d-nav-links" id="navLinks">
+            <a href="#circulo-de-oro" class="d-nav-link">Golden Circle</a>
             <a href="#productos" class="d-nav-link">Productos</a>
             <a href="#protocolo" class="d-nav-link">Protocolo</a>
-            <a href="#filosofia" class="d-nav-link">Filosof&iacute;a</a>
             <a href="#nosotros" class="d-nav-link">Nosotros</a>
             <a href="#blog" class="d-nav-link">Blog</a>
             <a href="#documentacion" class="d-nav-link">Documentaci&oacute;n</a>
@@ -62,7 +62,7 @@
             <a href="{{ url_for('login') }}" class="d-btn d-btn-primary">
                 Probar Demo <i class="fas fa-arrow-right"></i>
             </a>
-            <a href="#productos" class="d-btn d-btn-outline">
+            <a href="#circulo-de-oro" class="d-btn d-btn-outline">
                 Conocer m&aacute;s <i class="fas fa-chevron-down"></i>
             </a>
         </div>
@@ -78,6 +78,44 @@
             <div class="d-hero-stat">
                 <span class="d-stat-num">100%</span>
                 <span class="d-stat-label">Web &middot; Sin SSH</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== CÍRCULO DE ORO (SIMON SINEK) ===== -->
+<section class="d-section d-section-dark" id="circulo-de-oro">
+    <div class="d-container">
+        <div class="d-section-header">
+            <span class="d-section-tag" style="color: #ffd700; border-color: #ffd700;">Golden Circle</span>
+            <h2 class="d-section-title">El C&iacute;rculo de Oro<br><span style="font-size: 0.6em; font-weight: 400; color: rgba(255,255,255,0.4);">Simon Sinek</span></h2>
+            <p class="d-section-desc">No vendemos un sistema. Vendemos la libertad de hacer ciencia sin barreras.</p>
+        </div>
+
+        <div class="d-golden-circle">
+            <!-- WHAT (outer) -->
+            <div class="d-gc-ring d-gc-what">
+                <div class="d-gc-content">
+                    <div class="d-gc-label">WHAT</div>
+                    <h3>Qu&eacute; hacemos</h3>
+                    <p>Desarrollamos un Sistema de Gesti&oacute;n de Cl&uacute;ster web que automatiza la administraci&oacute;n de usuarios, la asignaci&oacute;n de recursos y la monitorizaci&oacute;n del rendimiento, integrado con SLURM y accesible desde cualquier navegador.</p>
+                </div>
+            </div>
+            <!-- HOW (middle) -->
+            <div class="d-gc-ring d-gc-how">
+                <div class="d-gc-content">
+                    <div class="d-gc-label">HOW</div>
+                    <h3>C&oacute;mo lo hacemos</h3>
+                    <p>Con una plataforma web modular (Flask + SQLAlchemy) que se integra directamente con SLURM, automatiza credenciales con trazabilidad completa y ofrece dashboards visuales en tiempo real. Sin SSH, sin l&iacute;nea de comandos.</p>
+                </div>
+            </div>
+            <!-- WHY (inner) -->
+            <div class="d-gc-ring d-gc-why">
+                <div class="d-gc-content">
+                    <div class="d-gc-label">WHY</div>
+                    <h3>Por qu&eacute; lo hacemos</h3>
+                    <p>Porque los investigadores no deber&iacute;an perder tiempo administrando servidores. Queremos que la ciencia avance m&aacute;s r&aacute;pido eliminando la fricci&oacute;n t&eacute;cnica.</p>
+                </div>
             </div>
         </div>
     </div>
@@ -179,44 +217,11 @@
     </div>
 </section>
 
-<!-- ===== FILOSOFÍA ===== -->
-<section class="d-section" id="filosofia">
-    <div class="d-container">
-        <div class="d-section-header">
-            <span class="d-section-tag">Filosof&iacute;a</span>
-            <h2 class="d-section-title">C&oacute;mo pensamos la<br>gesti&oacute;n de infraestructura</h2>
-        </div>
-        <div class="d-grid-3">
-            <div class="d-card d-card-glass">
-                <div class="d-card-icon" style="background: rgba(30,144,255,0.12); color: #1e90ff;">
-                    <i class="fas fa-hand-fist"></i>
-                </div>
-                <h3 class="d-card-title">Menos fricci&oacute;n, m&aacute;s ciencia</h3>
-                <p class="d-card-text">Los investigadores no deber&iacute;an perder tiempo administrando servidores. Nuestra plataforma elimina las barreras t&eacute;cnicas para que puedan enfocarse en lo que importa: la investigaci&oacute;n.</p>
-            </div>
-            <div class="d-card d-card-glass">
-                <div class="d-card-icon" style="background: rgba(0,212,255,0.12); color: #00d4ff;">
-                    <i class="fas fa-shield-halved"></i>
-                </div>
-                <h3 class="d-card-title">Seguridad por defecto</h3>
-                <p class="d-card-text">Cada solicitud queda registrada, cada recurso asignado tiene trazabilidad. Automatizamos la gesti&oacute;n de credenciales y aplicamos control de acceso basado en roles.</p>
-            </div>
-            <div class="d-card d-card-glass">
-                <div class="d-card-icon" style="background: rgba(0,200,83,0.12); color: #00c853;">
-                    <i class="fas fa-eye"></i>
-                </div>
-                <h3 class="d-card-title">Transparencia total</h3>
-                <p class="d-card-text">Dashboards en tiempo real, reportes autom&aacute;ticos y visibilidad completa del consumo de recursos por proyecto. Todos ven qu&eacute; recursos se usan y qui&eacute;n los usa.</p>
-            </div>
-        </div>
-    </div>
-</section>
-
 <!-- ===== NOSOTROS ===== -->
-<section class="d-section d-section-dark" id="nosotros">
+<section class="d-section" id="nosotros">
     <div class="d-container">
         <div class="d-section-header">
-            <span class="d-section-tag" style="color: #00d4ff; border-color: #00d4ff;">Nosotros</span>
+            <span class="d-section-tag">Nosotros</span>
             <h2 class="d-section-title">Detr&aacute;s del proyecto</h2>
         </div>
         <div class="d-about-grid">
@@ -254,12 +259,12 @@
 </section>
 
 <!-- ===== BLOG / NOTICIAS ===== -->
-<section class="d-section" id="blog">
+<section class="d-section d-section-dark" id="blog">
     <div class="d-container">
         <div class="d-section-header">
-            <span class="d-section-tag">Blog</span>
+            <span class="d-section-tag" style="color: #00d4ff; border-color: #00d4ff;">Blog</span>
             <h2 class="d-section-title">Novedades del proyecto</h2>
-            <p class="d-section-desc">Segu&iacute; el progreso del desarrollo, los hitos alcanzados y las pr&oacute;ximas etapas del CLUSTER-NIDTEC.</p>
+            <p class="d-section-desc">Segu&iacute; el progreso del desarrollo, los hitos alcanzados y las pr&oacute;ximas etapas de FNOGUERA CLUSTER.</p>
         </div>
         <div class="d-grid-3">
             <div class="d-card d-card-blog">
@@ -297,15 +302,15 @@
 </section>
 
 <!-- ===== DOCUMENTACIÓN ===== -->
-<section class="d-section d-section-dark" id="documentacion">
+<section class="d-section" id="documentacion">
     <div class="d-container">
         <div class="d-section-header">
-            <span class="d-section-tag" style="color: #00d4ff; border-color: #00d4ff;">Documentaci&oacute;n</span>
+            <span class="d-section-tag">Documentaci&oacute;n</span>
             <h2 class="d-section-title">Recursos &uacute;tiles</h2>
             <p class="d-section-desc">Acced&eacute; a la documentaci&oacute;n t&eacute;cnica y acad&eacute;mica del proyecto.</p>
         </div>
         <div class="d-grid-3">
-            <a href="#" class="d-doc-card" onclick="alert('Documento disponible próximamente'); return false;">
+            <a href="#" class="d-doc-card" onclick="alert('Documento disponible pr\u00f3ximamente'); return false;">
                 <div class="d-doc-icon">
                     <i class="fas fa-file-pdf"></i>
                 </div>
@@ -315,7 +320,7 @@
                     <span class="d-doc-meta">PDF &middot; 2026</span>
                 </div>
             </a>
-            <a href="#" class="d-doc-card" onclick="alert('Documento disponible próximamente'); return false;">
+            <a href="#" class="d-doc-card" onclick="alert('Documento disponible pr\u00f3ximamente'); return false;">
                 <div class="d-doc-icon">
                     <i class="fas fa-file-code"></i>
                 </div>
@@ -325,7 +330,7 @@
                     <span class="d-doc-meta">GitHub &middot; Flask + SQLAlchemy</span>
                 </div>
             </a>
-            <a href="#" class="d-doc-card" onclick="alert('Documento disponible próximamente'); return false;">
+            <a href="#" class="d-doc-card" onclick="alert('Documento disponible pr\u00f3ximamente'); return false;">
                 <div class="d-doc-icon">
                     <i class="fas fa-file-lines"></i>
                 </div>
@@ -340,10 +345,10 @@
 </section>
 
 <!-- ===== FOUNDING MEMBER ===== -->
-<section class="d-section" id="miembros">
+<section class="d-section d-section-dark" id="miembros">
     <div class="d-container">
         <div class="d-section-header">
-            <span class="d-section-tag">Founding Member</span>
+            <span class="d-section-tag" style="color: #00d4ff; border-color: #00d4ff;">Founding Member</span>
             <h2 class="d-section-title">Instituciones que hacen<br>posible este proyecto</h2>
         </div>
         <div class="d-members">
@@ -378,7 +383,7 @@
     <div class="d-cta-bg"></div>
     <div class="d-container" style="position: relative; z-index: 2;">
         <div class="d-cta-content">
-            <h2 class="d-cta-title">Prob&aacute; el CLUSTER-NIDTEC ahora</h2>
+            <h2 class="d-cta-title">Prob&aacute; el FNOGUERA CLUSTER ahora</h2>
             <p class="d-cta-text">Acced&eacute; a la demo del sistema y experiment&aacute; la gesti&oacute;n automatizada de cl&uacute;steres HPC. Sin instalaci&oacute;n, sin compromiso.</p>
             <a href="{{ url_for('login') }}" class="d-btn d-btn-primary d-btn-large">
                 <i class="fas fa-flask"></i> Probar Demo Gratuita
@@ -394,14 +399,14 @@
         <div class="d-footer-grid">
             <div class="d-footer-brand">
                 <span class="d-brand-icon"><i class="fas fa-server"></i></span>
-                <span class="d-brand-text">CLUSTER<span class="d-brand-accent">-NIDTEC</span></span>
+                <span class="d-brand-text">FNOGUERA<span class="d-brand-accent"> CLUSTER</span></span>
                 <p>Sistema de Gesti&oacute;n de Cl&uacute;ster &middot; Trabajo Final de Grado &middot; 2026</p>
             </div>
             <div class="d-footer-links">
                 <h5>Producto</h5>
+                <a href="#circulo-de-oro">Golden Circle</a>
                 <a href="#productos">M&oacute;dulos</a>
                 <a href="#protocolo">Protocolo</a>
-                <a href="#filosofia">Filosof&iacute;a</a>
             </div>
             <div class="d-footer-links">
                 <h5>Proyecto</h5>
@@ -425,7 +430,6 @@
 
 <!-- ===== SCRIPTS ===== -->
 <script>
-// Navbar scroll effect
 const navbar = document.getElementById('navbar');
 let lastScroll = 0;
 window.addEventListener('scroll', () => {
@@ -438,7 +442,6 @@ window.addEventListener('scroll', () => {
     lastScroll = current;
 });
 
-// Mobile toggle
 const navToggle = document.getElementById('navToggle');
 const navLinks = document.getElementById('navLinks');
 navToggle.addEventListener('click', () => {
@@ -446,7 +449,6 @@ navToggle.addEventListener('click', () => {
     navToggle.classList.toggle('active');
 });
 
-// Close mobile nav on link click
 document.querySelectorAll('.d-nav-link').forEach(link => {
     link.addEventListener('click', () => {
         navLinks.classList.remove('d-nav-open');
@@ -454,7 +456,6 @@ document.querySelectorAll('.d-nav-link').forEach(link => {
     });
 });
 
-// Smooth scroll
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function(e) {
         const href = this.getAttribute('href');
@@ -467,7 +468,6 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     });
 });
 
-// Intersection Observer for animations
 const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
         if (entry.isIntersecting) {
@@ -476,7 +476,7 @@ const observer = new IntersectionObserver((entries) => {
     });
 }, { threshold: 0.1 });
 
-document.querySelectorAll('.d-card, .d-flow-step, .d-about-card, .d-doc-card, .d-member-card').forEach(el => {
+document.querySelectorAll('.d-card, .d-flow-step, .d-about-card, .d-doc-card, .d-member-card, .d-gc-ring').forEach(el => {
     el.classList.add('d-animate');
     observer.observe(el);
 });

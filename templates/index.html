@@ -1,153 +1,485 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FNOGUERA CLUSTER - Facultad Politécnica UNA</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <title>CLUSTER-NIDTEC | Sistema de Gesti&oacute;n de Cl&uacute;ster</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/logo-FNC.png') }}">
-    <style>
-        body { margin-left: 0; }
-
-        .hero-section {
-            background: linear-gradient(rgba(26, 54, 104, 0.9), rgba(26, 54, 104, 0.9)),
-            url("{{ url_for('static', filename='img/una_logo.png') }}");
-            background-size: cover;
-            background-position: center;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            color: white;
-            padding: 80px 2rem 2rem 240px;
-        }
-
-        .feature-card {
-            border: none;
-            border-radius: 1.25rem;
-            transition: all 0.3s ease;
-            height: 100%;
-            background: white;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-        }
-
-        .feature-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-        }
-
-        .feature-icon {
-            width: 60px;
-            height: 60px;
-            background: rgba(26, 54, 104, 0.1);
-            color: var(--primary-color);
-            border-radius: 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .hero-logo {
-            max-height: 400px;
-            filter: drop-shadow(0 0 30px rgba(255, 255, 255, 0.3));
-        }
-
-        .section-divider {
-            width: 80px;
-            height: 5px;
-        }
-    </style>
-    <script src="{{ url_for('static', filename='js/darkmode.js') }}"></script>
 </head>
-
 <body>
-    <nav class="navbar-institutional">
-        <div class="navbar-brand-group">
-            <h4 class="logo-text">FNOGUERA CLUSTER</h4>
-        </div>
-    </nav>
 
-    <header class="hero-section">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-lg-6">
-                    <span class="badge bg-white text-primary px-3 py-2 rounded-pill mb-3 fw-bold">Núcleo de
-                        Investigación y Desarrollo Tecnológico</span>
-                    <h1 class="display-3 fw-bold mb-4">FNOGUERA CLUSTER</h1>
-                    <p class="lead mb-5 opacity-90">
-                        Infraestructura de computación de alto rendimiento para la investigación,
-                        desarrollo tecnológico e innovación en la Facultad Politécnica de la
-                        Universidad Nacional de Asunción.
-                    </p>
-                    <div class="d-flex gap-3">
-                        <a href="{{ url_for('login') }}"
-                            class="btn btn-light btn-lg px-5 py-3 fw-bold rounded-pill shadow">
-                            Ingrese ahora <i class="fas fa-arrow-right ms-2"></i>
-                        </a>
-                        <a href="#info" class="btn btn-outline-light btn-lg px-5 py-3 rounded-pill">
-                            Saber más
-                        </a>
-                    </div>
+<!-- ===== NAVBAR ===== -->
+<nav class="d-navbar" id="navbar">
+    <div class="d-nav-container">
+        <a href="#" class="d-nav-brand">
+            <span class="d-brand-icon">
+                <i class="fas fa-server"></i>
+            </span>
+            <span class="d-brand-text">CLUSTER<span class="d-brand-accent">-NIDTEC</span></span>
+        </a>
+        <div class="d-nav-links" id="navLinks">
+            <a href="#productos" class="d-nav-link">Productos</a>
+            <a href="#protocolo" class="d-nav-link">Protocolo</a>
+            <a href="#filosofia" class="d-nav-link">Filosof&iacute;a</a>
+            <a href="#nosotros" class="d-nav-link">Nosotros</a>
+            <a href="#blog" class="d-nav-link">Blog</a>
+            <a href="#documentacion" class="d-nav-link">Documentaci&oacute;n</a>
+            <a href="#miembros" class="d-nav-link">Founding Member</a>
+            <a href="{{ url_for('login') }}" class="d-nav-cta">
+                <i class="fas fa-flask"></i> Probar Demo
+            </a>
+        </div>
+        <button class="d-nav-toggle" id="navToggle" aria-label="Men&uacute;">
+            <span></span><span></span><span></span>
+        </button>
+    </div>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="d-hero" id="hero">
+    <div class="d-hero-bg">
+        <div class="d-hero-glow d-hero-glow-1"></div>
+        <div class="d-hero-glow d-hero-glow-2"></div>
+    </div>
+    <div class="d-hero-content">
+        <div class="d-hero-badge">
+            <i class="fas fa-microchip"></i>
+            N&uacute;cleo de Investigaci&oacute;n y Desarrollo Tecnol&oacute;gico
+        </div>
+        <h1 class="d-hero-title">
+            Gesti&oacute;n inteligente<br>
+            <span class="d-text-gradient">para tu cl&uacute;ster HPC</span>
+        </h1>
+        <p class="d-hero-sub">
+            Automatiz&aacute; la administraci&oacute;n de usuarios, recursos y monitorizaci&oacute;n
+            del cl&uacute;ster de c&oacute;mputo del NIDTEC. Todo desde un navegador.
+        </p>
+        <div class="d-hero-actions">
+            <a href="{{ url_for('login') }}" class="d-btn d-btn-primary">
+                Probar Demo <i class="fas fa-arrow-right"></i>
+            </a>
+            <a href="#productos" class="d-btn d-btn-outline">
+                Conocer m&aacute;s <i class="fas fa-chevron-down"></i>
+            </a>
+        </div>
+        <div class="d-hero-stats">
+            <div class="d-hero-stat">
+                <span class="d-stat-num">4</span>
+                <span class="d-stat-label">M&oacute;dulos integrados</span>
+            </div>
+            <div class="d-hero-stat">
+                <span class="d-stat-num">SLURM</span>
+                <span class="d-stat-label">Planificador integrado</span>
+            </div>
+            <div class="d-hero-stat">
+                <span class="d-stat-num">100%</span>
+                <span class="d-stat-label">Web &middot; Sin SSH</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== PRODUCTOS ===== -->
+<section class="d-section" id="productos">
+    <div class="d-container">
+        <div class="d-section-header">
+            <span class="d-section-tag">Productos</span>
+            <h2 class="d-section-title">Todo lo que necesit&aacute;s<br>para gestionar tu cl&uacute;ster</h2>
+            <p class="d-section-desc">
+                Cuatro m&oacute;dulos dise&ntilde;ados para cubrir cada aspecto de la administraci&oacute;n
+                de infraestructura HPC, desde el registro hasta la monitorizaci&oacute;n.
+            </p>
+        </div>
+        <div class="d-grid-4">
+            <div class="d-card d-card-hover">
+                <div class="d-card-icon" style="background: rgba(30,144,255,0.15); color: #1e90ff;">
+                    <i class="fas fa-users"></i>
                 </div>
-                <div class="col-lg-6 d-none d-lg-block text-center">
-                    <img src="{{ url_for('static', filename='img/una_logo.png') }}" alt="UNA Logo"
-                        class="img-fluid hero-logo">
+                <h3 class="d-card-title">Usuarios</h3>
+                <p class="d-card-text">Registro web con correo institucional. Roles diferenciados: investigador, administrador. Asignaci&oacute;n din&aacute;mica de roles.</p>
+            </div>
+            <div class="d-card d-card-hover">
+                <div class="d-card-icon" style="background: rgba(0,212,255,0.15); color: #00d4ff;">
+                    <i class="fas fa-folder-open"></i>
+                </div>
+                <h3 class="d-card-title">Proyectos</h3>
+                <p class="d-card-text">Solicitudes de acceso con trazabilidad. Contenedores l&oacute;gicos que vinculan consumo de recursos a proyectos espec&iacute;ficos.</p>
+            </div>
+            <div class="d-card d-card-hover">
+                <div class="d-card-icon" style="background: rgba(0,200,83,0.15); color: #00c853;">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <h3 class="d-card-title">Monitorizaci&oacute;n</h3>
+                <p class="d-card-text">Dashboard visual en tiempo real. Estado de nodos, memoria, CPU, GPU. Seguimiento de trabajos SLURM sin CLI.</p>
+            </div>
+            <div class="d-card d-card-hover">
+                <div class="d-card-icon" style="background: rgba(255,107,53,0.15); color: #ff6b35;">
+                    <i class="fas fa-cog"></i>
+                </div>
+                <h3 class="d-card-title">Administraci&oacute;n</h3>
+                <p class="d-card-text">Consola centralizada para el equipo t&eacute;cnico. Aprobaci&oacute;n de solicitudes, reportes de uso y credenciales seguras.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== PROTOCOLO ===== -->
+<section class="d-section d-section-dark" id="protocolo">
+    <div class="d-container">
+        <div class="d-section-header">
+            <span class="d-section-tag" style="color: #00d4ff; border-color: #00d4ff;">Protocolo</span>
+            <h2 class="d-section-title">Del registro al resultado</h2>
+            <p class="d-section-desc">El flujo completo del sistema en cinco pasos simples.</p>
+        </div>
+        <div class="d-flow">
+            <div class="d-flow-step">
+                <div class="d-flow-num" style="background: #1e90ff;">1</div>
+                <div class="d-flow-content">
+                    <h4>Registro</h4>
+                    <p>El usuario se registra con su correo institucional y accede al sistema.</p>
+                </div>
+                <div class="d-flow-arrow"><i class="fas fa-arrow-right"></i></div>
+            </div>
+            <div class="d-flow-step">
+                <div class="d-flow-num" style="background: #00d4ff;">2</div>
+                <div class="d-flow-content">
+                    <h4>Solicitud</h4>
+                    <p>Solicita acceso a recursos del cl&uacute;ster para su proyecto de investigaci&oacute;n.</p>
+                </div>
+                <div class="d-flow-arrow"><i class="fas fa-arrow-right"></i></div>
+            </div>
+            <div class="d-flow-step">
+                <div class="d-flow-num" style="background: #00c853;">3</div>
+                <div class="d-flow-content">
+                    <h4>Aprobaci&oacute;n</h4>
+                    <p>El administrador revisa, aprueba y asigna los recursos solicitados.</p>
+                </div>
+                <div class="d-flow-arrow"><i class="fas fa-arrow-right"></i></div>
+            </div>
+            <div class="d-flow-step">
+                <div class="d-flow-num" style="background: #ff6b35;">4</div>
+                <div class="d-flow-content">
+                    <h4>Acceso</h4>
+                    <p>Credenciales generadas autom&aacute;ticamente. Notificaci&oacute;n enviada al usuario.</p>
+                </div>
+                <div class="d-flow-arrow"><i class="fas fa-arrow-right"></i></div>
+            </div>
+            <div class="d-flow-step">
+                <div class="d-flow-num" style="background: #1e90ff;">5</div>
+                <div class="d-flow-content">
+                    <h4>Monitorizaci&oacute;n</h4>
+                    <p>El usuario ejecuta trabajos y monitorea recursos en tiempo real desde el dashboard.</p>
                 </div>
             </div>
         </div>
-    </header>
+    </div>
+</section>
 
-    <section id="info" class="py-5 bg-light" style="padding-left: 220px;">
-        <div class="container py-5">
-            <div class="text-center mb-5">
-                <h2 class="fw-bold text-dark">Servicios y Capacidades</h2>
-                <div class="bg-primary mx-auto rounded-pill section-divider"></div>
+<!-- ===== FILOSOFÍA ===== -->
+<section class="d-section" id="filosofia">
+    <div class="d-container">
+        <div class="d-section-header">
+            <span class="d-section-tag">Filosof&iacute;a</span>
+            <h2 class="d-section-title">C&oacute;mo pensamos la<br>gesti&oacute;n de infraestructura</h2>
+        </div>
+        <div class="d-grid-3">
+            <div class="d-card d-card-glass">
+                <div class="d-card-icon" style="background: rgba(30,144,255,0.12); color: #1e90ff;">
+                    <i class="fas fa-hand-fist"></i>
+                </div>
+                <h3 class="d-card-title">Menos fricci&oacute;n, m&aacute;s ciencia</h3>
+                <p class="d-card-text">Los investigadores no deber&iacute;an perder tiempo administrando servidores. Nuestra plataforma elimina las barreras t&eacute;cnicas para que puedan enfocarse en lo que importa: la investigaci&oacute;n.</p>
             </div>
-            <div class="row g-4">
-                <div class="col-md-4">
-                    <div class="feature-card p-4">
-                        <div class="feature-icon">
-                            <i class="fas fa-microchip"></i>
-                        </div>
-                        <h4 class="fw-bold text-dark">Cómputo Paralelo</h4>
-                        <p class="text-muted">Procesamiento distribuido para simulaciones científicas complejas y
-                            análisis de grandes volúmenes de datos.</p>
-                    </div>
+            <div class="d-card d-card-glass">
+                <div class="d-card-icon" style="background: rgba(0,212,255,0.12); color: #00d4ff;">
+                    <i class="fas fa-shield-halved"></i>
                 </div>
-                <div class="col-md-4">
-                    <div class="feature-card p-4">
-                        <div class="feature-icon">
-                            <i class="fas fa-server"></i>
-                        </div>
-                        <h4 class="fw-bold text-dark">Máquinas Virtuales</h4>
-                        <p class="text-muted">Despliegue de entornos personalizados con recursos dedicados (CPU, RAM,
-                            GPU) según los requerimientos del proyecto.</p>
-                    </div>
+                <h3 class="d-card-title">Seguridad por defecto</h3>
+                <p class="d-card-text">Cada solicitud queda registrada, cada recurso asignado tiene trazabilidad. Automatizamos la gesti&oacute;n de credenciales y aplicamos control de acceso basado en roles.</p>
+            </div>
+            <div class="d-card d-card-glass">
+                <div class="d-card-icon" style="background: rgba(0,200,83,0.12); color: #00c853;">
+                    <i class="fas fa-eye"></i>
                 </div>
-                <div class="col-md-4">
-                    <div class="feature-card p-4">
-                        <div class="feature-icon">
-                            <i class="fas fa-project-diagram"></i>
-                        </div>
-                        <h4 class="fw-bold text-dark">Gestión de Nodos</h4>
-                        <p class="text-muted">Acceso autorizado a nodos físicos del Cluster para tareas de alta
-                            prioridad y máximo rendimiento.</p>
-                    </div>
+                <h3 class="d-card-title">Transparencia total</h3>
+                <p class="d-card-text">Dashboards en tiempo real, reportes autom&aacute;ticos y visibilidad completa del consumo de recursos por proyecto. Todos ven qu&eacute; recursos se usan y qui&eacute;n los usa.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== NOSOTROS ===== -->
+<section class="d-section d-section-dark" id="nosotros">
+    <div class="d-container">
+        <div class="d-section-header">
+            <span class="d-section-tag" style="color: #00d4ff; border-color: #00d4ff;">Nosotros</span>
+            <h2 class="d-section-title">Detr&aacute;s del proyecto</h2>
+        </div>
+        <div class="d-about-grid">
+            <div class="d-about-card">
+                <div class="d-about-avatar" style="background: linear-gradient(135deg, #1e90ff, #00d4ff);">
+                    <i class="fas fa-user-graduate"></i>
+                </div>
+                <h4>Fernando Gustavo Noguera Torres</h4>
+                <span class="d-about-role">Estudiante &middot; Lic. en Ciencias Inform&aacute;ticas</span>
+                <p>Desarrollador del proyecto de trabajo final de grado en la Facultad Polit&eacute;cnica de la Universidad Nacional de Asunci&oacute;n.</p>
+            </div>
+            <div class="d-about-card">
+                <div class="d-about-avatar" style="background: linear-gradient(135deg, #00c853, #00d4ff);">
+                    <i class="fas fa-chalkboard-user"></i>
+                </div>
+                <h4>Prof. Dr. Cristian Cappo</h4>
+                <span class="d-about-role">Asesor &middot; Tutor de Trabajo Final</span>
+                <p>Profesor y asesor acad&eacute;mico del proyecto. Acompa&ntilde;a la investigaci&oacute;n y el desarrollo t&eacute;cnico del sistema gestor.</p>
+            </div>
+            <div class="d-about-card d-about-card-featured">
+                <div class="d-about-avatar" style="background: linear-gradient(135deg, #ff6b35, #ff9a44);">
+                    <i class="fas fa-landmark"></i>
+                </div>
+                <h4>NIDTEC</h4>
+                <span class="d-about-role">N&uacute;cleo de Investigaci&oacute;n y Desarrollo Tecnol&oacute;gico</span>
+                <p>Centro de investigaci&oacute;n de la Facultad Polit&eacute;cnica - UNA. Desarrolla soluciones innovadoras para problemas de relevancia nacional e internacional.</p>
+                <div class="d-about-badges">
+                    <span>FP-UNA</span>
+                    <span>HPC</span>
+                    <span>Investigaci&oacute;n</span>
                 </div>
             </div>
         </div>
-    </section>
+    </div>
+</section>
 
-    <footer class="bg-dark text-white py-4 mt-auto" style="padding-left: 220px;">
-        <div class="container text-center">
-            <p class="mb-0 small">© 2026 Facultad Politécnica, UNA - Núcleo de Investigación y Desarrollo Tecnológico
-                (NIDTEC)</p>
+<!-- ===== BLOG / NOTICIAS ===== -->
+<section class="d-section" id="blog">
+    <div class="d-container">
+        <div class="d-section-header">
+            <span class="d-section-tag">Blog</span>
+            <h2 class="d-section-title">Novedades del proyecto</h2>
+            <p class="d-section-desc">Segu&iacute; el progreso del desarrollo, los hitos alcanzados y las pr&oacute;ximas etapas del CLUSTER-NIDTEC.</p>
         </div>
-    </footer>
+        <div class="d-grid-3">
+            <div class="d-card d-card-blog">
+                <div class="d-blog-img" style="background: linear-gradient(135deg, #0b1d3a, #1e90ff);">
+                    <i class="fas fa-rocket"></i>
+                </div>
+                <div class="d-blog-body">
+                    <span class="d-blog-date"><i class="far fa-calendar"></i> Junio 2026</span>
+                    <h4>Prototipado del Dashboard</h4>
+                    <p>Primera versi&oacute;n funcional del m&oacute;dulo de monitorizaci&oacute;n con visualizaci&oacute;n en tiempo real de recursos del cl&uacute;ster.</p>
+                </div>
+            </div>
+            <div class="d-card d-card-blog">
+                <div class="d-blog-img" style="background: linear-gradient(135deg, #0b1d3a, #00c853);">
+                    <i class="fas fa-database"></i>
+                </div>
+                <div class="d-blog-body">
+                    <span class="d-blog-date"><i class="far fa-calendar"></i> Mayo 2026</span>
+                    <h4>Base de datos relacional</h4>
+                    <p>Esquema de base de datos de 3 capas (solicitudes, aprobaciones y proyectos) con restricciones de integridad relacional.</p>
+                </div>
+            </div>
+            <div class="d-card d-card-blog">
+                <div class="d-blog-img" style="background: linear-gradient(135deg, #0b1d3a, #ff6b35);">
+                    <i class="fas fa-flask"></i>
+                </div>
+                <div class="d-blog-body">
+                    <span class="d-blog-date"><i class="far fa-calendar"></i> Marzo 2026</span>
+                    <h4>Inicio del proyecto</h4>
+                    <p>Relevamiento de procesos, an&aacute;lisis de riesgos y definici&oacute;n de requerimientos funcionales para el sistema gestor.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== DOCUMENTACIÓN ===== -->
+<section class="d-section d-section-dark" id="documentacion">
+    <div class="d-container">
+        <div class="d-section-header">
+            <span class="d-section-tag" style="color: #00d4ff; border-color: #00d4ff;">Documentaci&oacute;n</span>
+            <h2 class="d-section-title">Recursos &uacute;tiles</h2>
+            <p class="d-section-desc">Acced&eacute; a la documentaci&oacute;n t&eacute;cnica y acad&eacute;mica del proyecto.</p>
+        </div>
+        <div class="d-grid-3">
+            <a href="#" class="d-doc-card" onclick="alert('Documento disponible próximamente'); return false;">
+                <div class="d-doc-icon">
+                    <i class="fas fa-file-pdf"></i>
+                </div>
+                <div class="d-doc-info">
+                    <h4>Anteproyecto</h4>
+                    <p>Documento completo del anteproyecto de trabajo final de grado.</p>
+                    <span class="d-doc-meta">PDF &middot; 2026</span>
+                </div>
+            </a>
+            <a href="#" class="d-doc-card" onclick="alert('Documento disponible próximamente'); return false;">
+                <div class="d-doc-icon">
+                    <i class="fas fa-file-code"></i>
+                </div>
+                <div class="d-doc-info">
+                    <h4>Repositorio</h4>
+                    <p>C&oacute;digo fuente del sistema gestor de cl&uacute;ster.</p>
+                    <span class="d-doc-meta">GitHub &middot; Flask + SQLAlchemy</span>
+                </div>
+            </a>
+            <a href="#" class="d-doc-card" onclick="alert('Documento disponible próximamente'); return false;">
+                <div class="d-doc-icon">
+                    <i class="fas fa-file-lines"></i>
+                </div>
+                <div class="d-doc-info">
+                    <h4>API Reference</h4>
+                    <p>Documentaci&oacute;n de la integraci&oacute;n con SLURM y endpoints del sistema.</p>
+                    <span class="d-doc-meta">Swagger &middot; REST API</span>
+                </div>
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- ===== FOUNDING MEMBER ===== -->
+<section class="d-section" id="miembros">
+    <div class="d-container">
+        <div class="d-section-header">
+            <span class="d-section-tag">Founding Member</span>
+            <h2 class="d-section-title">Instituciones que hacen<br>posible este proyecto</h2>
+        </div>
+        <div class="d-members">
+            <div class="d-member-card">
+                <div class="d-member-logo">
+                    <i class="fas fa-university"></i>
+                </div>
+                <h4>Universidad Nacional de Asunci&oacute;n</h4>
+                <p>M&aacute;xima casa de estudios del Paraguay. Impulsa la investigaci&oacute;n cient&iacute;fica y el desarrollo tecnol&oacute;gico del pa&iacute;s.</p>
+            </div>
+            <div class="d-member-card d-member-featured">
+                <div class="d-member-logo">
+                    <i class="fas fa-school"></i>
+                </div>
+                <h4>Facultad Polit&eacute;cnica - UNA</h4>
+                <p>Unidad acad&eacute;mica responsable de la formaci&oacute;n en ciencias inform&aacute;ticas, ingenier&iacute;a y tecnolog&iacute;a. Alberga el NIDTEC.</p>
+                <span class="d-member-badge">Founding Member</span>
+            </div>
+            <div class="d-member-card">
+                <div class="d-member-logo">
+                    <i class="fas fa-microchip"></i>
+                </div>
+                <h4>NIDTEC</h4>
+                <p>N&uacute;cleo de Investigaci&oacute;n y Desarrollo Tecnol&oacute;gico. Centro de investigaci&oacute;n que provee la infraestructura de cl&uacute;ster HPC.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== CTA FINAL ===== -->
+<section class="d-section d-cta">
+    <div class="d-cta-bg"></div>
+    <div class="d-container" style="position: relative; z-index: 2;">
+        <div class="d-cta-content">
+            <h2 class="d-cta-title">Prob&aacute; el CLUSTER-NIDTEC ahora</h2>
+            <p class="d-cta-text">Acced&eacute; a la demo del sistema y experiment&aacute; la gesti&oacute;n automatizada de cl&uacute;steres HPC. Sin instalaci&oacute;n, sin compromiso.</p>
+            <a href="{{ url_for('login') }}" class="d-btn d-btn-primary d-btn-large">
+                <i class="fas fa-flask"></i> Probar Demo Gratuita
+                <span class="d-btn-hint">Sin registro complicado</span>
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer class="d-footer">
+    <div class="d-container">
+        <div class="d-footer-grid">
+            <div class="d-footer-brand">
+                <span class="d-brand-icon"><i class="fas fa-server"></i></span>
+                <span class="d-brand-text">CLUSTER<span class="d-brand-accent">-NIDTEC</span></span>
+                <p>Sistema de Gesti&oacute;n de Cl&uacute;ster &middot; Trabajo Final de Grado &middot; 2026</p>
+            </div>
+            <div class="d-footer-links">
+                <h5>Producto</h5>
+                <a href="#productos">M&oacute;dulos</a>
+                <a href="#protocolo">Protocolo</a>
+                <a href="#filosofia">Filosof&iacute;a</a>
+            </div>
+            <div class="d-footer-links">
+                <h5>Proyecto</h5>
+                <a href="#nosotros">Equipo</a>
+                <a href="#blog">Blog</a>
+                <a href="#documentacion">Docs</a>
+            </div>
+            <div class="d-footer-links">
+                <h5>Contacto</h5>
+                <a href="https://nidtec.pol.una.py/" target="_blank">NIDTEC</a>
+                <a href="https://www.pol.una.py/" target="_blank">FP-UNA</a>
+                <a href="https://www.una.py/" target="_blank">UNA</a>
+            </div>
+        </div>
+        <div class="d-footer-bottom">
+            <p>&copy; 2026 Fernando Noguera &middot; Facultad Polit&eacute;cnica &middot; Universidad Nacional de Asunci&oacute;n</p>
+            <p class="d-footer-meta">San Lorenzo &middot; Paraguay</p>
+        </div>
+    </div>
+</footer>
+
+<!-- ===== SCRIPTS ===== -->
+<script>
+// Navbar scroll effect
+const navbar = document.getElementById('navbar');
+let lastScroll = 0;
+window.addEventListener('scroll', () => {
+    const current = window.scrollY;
+    if (current > 80) {
+        navbar.classList.add('d-nav-scrolled');
+    } else {
+        navbar.classList.remove('d-nav-scrolled');
+    }
+    lastScroll = current;
+});
+
+// Mobile toggle
+const navToggle = document.getElementById('navToggle');
+const navLinks = document.getElementById('navLinks');
+navToggle.addEventListener('click', () => {
+    navLinks.classList.toggle('d-nav-open');
+    navToggle.classList.toggle('active');
+});
+
+// Close mobile nav on link click
+document.querySelectorAll('.d-nav-link').forEach(link => {
+    link.addEventListener('click', () => {
+        navLinks.classList.remove('d-nav-open');
+        navToggle.classList.remove('active');
+    });
+});
+
+// Smooth scroll
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function(e) {
+        const href = this.getAttribute('href');
+        if (href === '#') return;
+        e.preventDefault();
+        const target = document.querySelector(href);
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    });
+});
+
+// Intersection Observer for animations
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            entry.target.classList.add('d-visible');
+        }
+    });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.d-card, .d-flow-step, .d-about-card, .d-doc-card, .d-member-card').forEach(el => {
+    el.classList.add('d-animate');
+    observer.observe(el);
+});
+</script>
 </body>
-
 </html>

@@ -19,6 +19,11 @@ import select
 import struct
 from werkzeug.utils import secure_filename
 from flask_socketio import SocketIO, emit
+import smtplib
+import traceback
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from itsdangerous import URLSafeTimedSerializer
 
 # ── PTY conditionally available (Linux only) ──
 try:
@@ -61,6 +66,16 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         "options": "-c client_encoding=utf8"
     }
 }
+
+# ── Configuración de correo SMTP (Gmail) ─────────────────────────────
+SMTP_SERVER = 'smtp.gmail.com'
+SMTP_PORT = 587
+SMTP_USERNAME = 'fernandogustavonogueratorres@gmail.com'
+SMTP_PASSWORD = 'pabqjvymaeqnvhkv'
+SMTP_FROM = 'CLUSTER NIDTEC <fernandogustavonogueratorres@gmail.com>'
+
+# ── Serializador para tokens de recuperación ─────────────────────────
+serializer = URLSafeTimedSerializer(app.secret_key, salt='password-reset')
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
@@ -196,7 +211,7 @@ class Noticia(db.Model):
 # ── Before request: verificar expiración de sesión ──────────────────
 @app.before_request
 def verificar_sesion_expirada():
-    if 'user_id' in session and request.endpoint not in ('login', 'index', 'registro', 'recuperar_password', 'extender_sesion', 'tiempo_sesion', 'static'):
+    if 'user_id' in session and request.endpoint not in ('login', 'index', 'registro', 'recuperar_password', 'reset_password', 'extender_sesion', 'tiempo_sesion', 'static'):
         expira = session.get('session_expires_at')
         if expira and datetime.now().timestamp() > expira:
             session.clear()
@@ -260,6 +275,23 @@ def login():
             # Limpiamos el captcha usado de la sesión
             session.pop('captcha_result', None)
 
+            # Enviar correo de bienvenida
+            cuerpo_bienvenida = f"""
+            <html><body style="font-family:Arial,sans-serif;padding:20px">
+                <h2 style="color:#1a3668;">¡Bienvenido a FNCLust System!</h2>
+                <p>Hola <strong>{usuario.nombre_apellido}</strong>,</p>
+                <p>Has iniciado sesión correctamente en el sistema de gestión del CLUSTER NIDTEC.</p>
+                <p>Desde tu panel puedes:</p>
+                <ul>
+                    <li>Solicitar recursos del clúster</li>
+                    <li>Monitorear el estado de tus solicitudes</li>
+                    <li>Acceder a recursos y proyectos activos</li>
+                </ul>
+                <p><a href="{url_for('dashboard', _external=True)}" style="display:inline-block;padding:10px 20px;background:#1a3668;color:#fff;text-decoration:none;border-radius:5px;">Ir al panel</a></p>
+                <hr><p style="color:#999;font-size:11px;">CLUSTER NIDTEC — Facultad Politécnica - UNA</p>
+            </body></html>"""
+            enviar_correo(usuario.correo_electronico, 'Bienvenido a FNCLust System', cuerpo_bienvenida)
+
             flash(f'¡Bienvenido de vuelta, {usuario.nombre_apellido}!', 'success')
             return redirect(url_for('dashboard'))
         else:
@@ -282,11 +314,64 @@ def login():
 def recuperar_password():
     if request.method == 'POST':
         correo = request.form.get('correo')
-        # Aquí irá tu lógica futura para enviar correo o restablecer token en PostgreSQL
+        usuario = Usuario.query.filter_by(correo_electronico=correo).first()
+        if usuario:
+            token = serializer.dumps(usuario.id_usuario)
+            reset_url = url_for('reset_password', token=token, _external=True)
+            cuerpo = f"""
+            <html><body style="font-family:Arial,sans-serif;padding:20px">
+                <h2 style="color:#1a3668;">Recuperación de contraseña</h2>
+                <p>Haz clic en el siguiente enlace para restablecer tu contraseña. Expira en 1 hora.</p>
+                <p><a href="{reset_url}" style="display:inline-block;padding:10px 20px;background:#1a3668;color:#fff;text-decoration:none;border-radius:5px;">Restablecer contraseña</a></p>
+                <p style="color:#666;font-size:12px;">Si no solicitaste este cambio, ignora este mensaje.</p>
+                <hr><p style="color:#999;font-size:11px;">CLUSTER NIDTEC — Facultad Politécnica - UNA</p>
+            </body></html>"""
+            enviar_correo(correo, 'Recuperación de contraseña - CLUSTER NIDTEC', cuerpo)
+            print(f"[CORREO] Enlace de recuperación enviado a {correo}: {reset_url}")
         flash('Si el correo existe en el sistema, se han enviado las instrucciones de recuperación.', 'info')
         return redirect(url_for('login'))
-        
     return render_template('recuperar_password.html')
+
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    try:
+        user_id = serializer.loads(token, max_age=3600)
+    except Exception:
+        flash('El enlace de recuperación ha expirado o es inválido.', 'danger')
+        return redirect(url_for('login'))
+    if request.method == 'POST':
+        password = request.form.get('password')
+        confirm = request.form.get('confirm_password')
+        if password != confirm:
+            flash('Las contraseñas no coinciden.', 'danger')
+            return render_template('reset_password.html', token=token)
+        if len(password) < 6:
+            flash('La contraseña debe tener al menos 6 caracteres.', 'danger')
+            return render_template('reset_password.html', token=token)
+        usuario = Usuario.query.get(user_id)
+        if not usuario:
+            flash('Usuario no encontrado.', 'danger')
+            return redirect(url_for('login'))
+        usuario.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+        db.session.commit()
+        flash('Contraseña actualizada correctamente. Ya puedes iniciar sesión.', 'success')
+        return redirect(url_for('login'))
+    return render_template('reset_password.html', token=token)
+
+
+@app.route('/test-correo')
+def test_correo():
+    if 'user_id' not in session:
+        return redirect(url_for('index'))
+    user = Usuario.query.get(session['user_id'])
+    if user:
+        ok = enviar_correo(user.correo_electronico, 'Prueba CLUSTER NIDTEC',
+            '<h2 style="color:#1a3668;">Prueba de correo</h2><p>Si recibiste esto, el sistema de correo funciona correctamente.</p>')
+        if ok:
+            flash(f'Correo de prueba enviado a {user.correo_electronico}. Revisá tu bandeja (y spam).', 'success')
+        else:
+            flash('Error al enviar correo de prueba. Revisá la consola del servidor.', 'danger')
+    return redirect(url_for('dashboard'))
 
 
 @app.route('/registro', methods=['GET', 'POST'])
@@ -430,7 +515,7 @@ def nueva_solicitud():
             db.session.add(nueva)
             db.session.commit()
 
-            # Notificar a los administradores
+            # Notificar a los administradores (in-app + email)
             admins = Usuario.query.filter_by(es_administrador=True).all()
             for admin in admins:
                 notif = Notificacion(
@@ -439,6 +524,20 @@ def nueva_solicitud():
                     tipo='SOLICITUD'
                 )
                 db.session.add(notif)
+                solicitud_link = url_for('dashboard', _external=True) + f"#solicitud-{nueva.id_solicitud}"
+                cuerpo = f"""
+                <html><body style="font-family:Arial,sans-serif;padding:20px">
+                    <h2 style="color:#1a3668;">Nueva solicitud de recursos</h2>
+                    <p><strong>Solicitud #</strong>{nueva.id_solicitud}</p>
+                    <p><strong>Proyecto:</strong> {nueva.nombre_proyecto}</p>
+                    <p><strong>Solicitante:</strong> {nueva.nombre_solicitante or session.get('user_name')}</p>
+                    <p><strong>Correo:</strong> {nueva.correo_solicitante}</p>
+                    <p><strong>Facultad:</strong> {nueva.facultad}</p>
+                    <p><strong>Carrera:</strong> {nueva.carrera}</p>
+                    <p><a href="{solicitud_link}" style="display:inline-block;padding:10px 20px;background:#1a3668;color:#fff;text-decoration:none;border-radius:5px;">Ver solicitud #{nueva.id_solicitud}</a></p>
+                    <hr><p style="color:#999;font-size:11px;">CLUSTER NIDTEC — Facultad Politécnica - UNA</p>
+                </body></html>"""
+                enviar_correo(admin.correo_electronico, f'Nueva solicitud #{nueva.id_solicitud}: {nueva.nombre_proyecto}', cuerpo)
             db.session.commit()
 
             flash('Solicitud enviada correctamente', 'success')
@@ -497,13 +596,24 @@ def aceptar_solicitud(id):
         )
         db.session.add(nuevo_proyecto)
 
-        # 4. Crear la notificación para el alumno/investigador
+        # 4. Crear la notificación para el alumno/investigador (in-app + email)
         notif = Notificacion(
             id_usuario_destino=solicitud.id_usuario_solicitante,
             mensaje=f"Tu solicitud para '{solicitud.nombre_proyecto}' ha sido ACEPTADA y se ha creado el proyecto.",
             tipo='ESTADO'
         )
         db.session.add(notif)
+        usuario_sol = Usuario.query.get(solicitud.id_usuario_solicitante)
+        if usuario_sol:
+            cuerpo = f"""
+            <html><body style="font-family:Arial,sans-serif;padding:20px">
+                <h2 style="color:#1a3668;">Solicitud ACEPTADA</h2>
+                <p>Tu solicitud para el proyecto <strong>'{solicitud.nombre_proyecto}'</strong> ha sido <strong>ACEPTADA</strong>.</p>
+                <p>Ya puedes acceder a los recursos asignados desde el panel del CLUSTER NIDTEC.</p>
+                <p><a href="{url_for('dashboard', _external=True)}" style="display:inline-block;padding:10px 20px;background:#1a3668;color:#fff;text-decoration:none;border-radius:5px;">Ir al panel</a></p>
+                <hr><p style="color:#999;font-size:11px;">CLUSTER NIDTEC — Facultad Politécnica - UNA</p>
+            </body></html>"""
+            enviar_correo(usuario_sol.correo_electronico, f'Solicitud ACEPTADA - {solicitud.nombre_proyecto}', cuerpo)
 
         # Guardamos todo en la base de datos de forma atómica
         db.session.commit()
@@ -525,7 +635,7 @@ def rechazar_solicitud(id):
     solicitud.estado = 'RECHAZADA'
     db.session.commit()
 
-    # Notificar al usuario
+    # Notificar al usuario (in-app + email)
     notif = Notificacion(
         id_usuario_destino=solicitud.id_usuario_solicitante,
         mensaje=f"Tu solicitud para '{solicitud.nombre_proyecto}' ha sido RECHAZADA.",
@@ -533,6 +643,16 @@ def rechazar_solicitud(id):
     )
     db.session.add(notif)
     db.session.commit()
+    usuario_sol = Usuario.query.get(solicitud.id_usuario_solicitante)
+    if usuario_sol:
+        cuerpo = f"""
+        <html><body style="font-family:Arial,sans-serif;padding:20px">
+            <h2 style="color:#1a3668;">Solicitud RECHAZADA</h2>
+            <p>Tu solicitud para el proyecto <strong>'{solicitud.nombre_proyecto}'</strong> ha sido <strong>RECHAZADA</strong>.</p>
+            <p>Si necesitas más información, contacta con el administrador del sistema.</p>
+            <hr><p style="color:#999;font-size:11px;">CLUSTER NIDTEC — Facultad Politécnica - UNA</p>
+        </body></html>"""
+        enviar_correo(usuario_sol.correo_electronico, f'Solicitud RECHAZADA - {solicitud.nombre_proyecto}', cuerpo)
 
     flash(f'Solicitud #{id} rechazada', 'warning')
     return redirect(url_for('dashboard'))
@@ -1033,6 +1153,24 @@ SSH_CREDENTIALS = {
 def get_user_ssh_config(user_email):
     return SSH_CREDENTIALS.get(user_email)
 
+
+def enviar_correo(destinatario, asunto, cuerpo_html):
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = asunto
+        msg['From'] = SMTP_FROM
+        msg['To'] = destinatario
+        msg.attach(MIMEText(cuerpo_html, 'html', 'utf-8'))
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=15) as server:
+            server.starttls()
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.sendmail(SMTP_USERNAME, destinatario, msg.as_string())
+        print(f"[CORREO] Enviado OK a {destinatario}")
+        return True
+    except Exception as e:
+        print(f"[CORREO] ERROR al enviar a {destinatario}:")
+        traceback.print_exc()
+        return False
 
 def get_unread_notifications(user_id):
     """Retorna (unread_count, unread_notifs) para un usuario dado."""

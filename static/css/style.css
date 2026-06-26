@@ -1678,121 +1678,118 @@ label.form-label {
 /* ── Golden Circle (Simon Sinek) ── */
 .d-golden-circle {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
-    position: relative;
+    gap: 1.5rem;
+    max-width: 900px;
     margin: 0 auto;
-    max-width: 1100px;
-    min-height: 500px;
 }
 .d-gc-ring {
+    width: 100%;
+    border-radius: 20px;
+    padding: 2rem 2.5rem;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    transition: transform 0.4s ease, box-shadow 0.4s ease;
+    cursor: default;
+    position: relative;
+    overflow: hidden;
+}
+.d-gc-ring::before {
+    content: '';
     position: absolute;
-    border-radius: 50%;
+    top: 0;
+    left: 0;
+    width: 6px;
+    height: 100%;
+    border-radius: 20px 0 0 20px;
+}
+.d-gc-ring:hover {
+    transform: translateY(-4px);
+}
+
+/* WHY (top - gold) */
+.d-gc-why {
+    background: rgba(255, 215, 0, 0.04);
+    border: 1px solid rgba(255, 215, 0, 0.15);
+}
+.d-gc-why::before { background: #ffd700; }
+.d-gc-why:hover {
+    box-shadow: 0 12px 40px rgba(255, 215, 0, 0.06);
+    border-color: rgba(255, 215, 0, 0.25);
+}
+
+/* HOW (middle - cyan) */
+.d-gc-how {
+    background: rgba(0, 212, 255, 0.04);
+    border: 1px solid rgba(0, 212, 255, 0.12);
+    width: 92%;
+}
+.d-gc-how::before { background: #00d4ff; }
+.d-gc-how:hover {
+    box-shadow: 0 12px 40px rgba(0, 212, 255, 0.06);
+    border-color: rgba(0, 212, 255, 0.2);
+}
+
+/* WHAT (bottom - blue) */
+.d-gc-what {
+    background: rgba(30, 144, 255, 0.04);
+    border: 1px solid rgba(30, 144, 255, 0.12);
+    width: 84%;
+}
+.d-gc-what::before { background: #1e90ff; }
+.d-gc-what:hover {
+    box-shadow: 0 12px 40px rgba(30, 144, 255, 0.06);
+    border-color: rgba(30, 144, 255, 0.2);
+}
+
+.d-gc-step {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.5s ease, box-shadow 0.5s ease;
-    cursor: default;
+    font-weight: 800;
+    font-size: 0.75rem;
+    letter-spacing: 1.5px;
+    flex-shrink: 0;
 }
-.d-gc-ring:hover {
-    transform: scale(1.02);
-    z-index: 10;
-}
-
-/* WHAT (outer ring) */
-.d-gc-what {
-    width: 620px;
-    height: 620px;
-    background: rgba(30, 144, 255, 0.04);
-    border: 2px solid rgba(30, 144, 255, 0.15);
-    z-index: 1;
-}
-.d-gc-what:hover {
-    box-shadow: 0 0 60px rgba(30, 144, 255, 0.08);
-    border-color: rgba(30, 144, 255, 0.3);
-}
-
-/* HOW (middle ring) */
-.d-gc-how {
-    width: 440px;
-    height: 440px;
-    background: rgba(0, 212, 255, 0.05);
-    border: 2px solid rgba(0, 212, 255, 0.18);
-    z-index: 2;
-}
-.d-gc-how:hover {
-    box-shadow: 0 0 60px rgba(0, 212, 255, 0.08);
-    border-color: rgba(0, 212, 255, 0.35);
-}
-
-/* WHY (inner ring) */
-.d-gc-why {
-    width: 280px;
-    height: 280px;
-    background: rgba(255, 215, 0, 0.06);
-    border: 2px solid rgba(255, 215, 0, 0.25);
-    z-index: 3;
-}
-.d-gc-why:hover {
-    box-shadow: 0 0 70px rgba(255, 215, 0, 0.12);
-    border-color: rgba(255, 215, 0, 0.4);
-}
+.d-gc-why .d-gc-step { background: rgba(255, 215, 0, 0.12); color: #ffd700; border: 1px solid rgba(255,215,0,0.2); }
+.d-gc-how .d-gc-step { background: rgba(0, 212, 255, 0.12); color: #00d4ff; border: 1px solid rgba(0,212,255,0.2); }
+.d-gc-what .d-gc-step { background: rgba(30, 144, 255, 0.12); color: #1e90ff; border: 1px solid rgba(30,144,255,0.2); }
 
 .d-gc-content {
-    text-align: center;
-    padding: 1.5rem;
-    max-width: 85%;
+    flex: 1;
 }
-.d-gc-label {
-    display: inline-block;
-    font-size: 0.65rem;
-    font-weight: 800;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    padding: 0.2rem 0.8rem;
-    border-radius: 6px;
-    margin-bottom: 0.5rem;
-    background: rgba(255,255,255,0.05);
-}
-.d-gc-what .d-gc-label { color: #1e90ff; border: 1px solid rgba(30,144,255,0.25); }
-.d-gc-how .d-gc-label { color: #00d4ff; border: 1px solid rgba(0,212,255,0.25); }
-.d-gc-why .d-gc-label { color: #ffd700; border: 1px solid rgba(255,215,0,0.25); }
-
 .d-gc-content h3 {
-    font-size: 1rem;
+    font-size: 1.15rem;
     font-weight: 700;
     color: white;
-    margin: 0 0 0.4rem;
+    margin: 0 0 0.3rem;
 }
 .d-gc-content p {
-    font-size: 0.78rem;
-    color: rgba(255,255,255,0.5);
-    line-height: 1.5;
+    font-size: 0.88rem;
+    color: rgba(255, 255, 255, 0.5);
+    line-height: 1.6;
     margin: 0;
 }
 
-.d-gc-what .d-gc-content p { font-size: 0.82rem; }
-.d-gc-how .d-gc-content p { font-size: 0.78rem; }
-.d-gc-why .d-gc-content p { font-size: 0.85rem; }
+.d-gc-connector {
+    color: rgba(255, 255, 255, 0.08);
+    font-size: 1.2rem;
+}
 
-/* Golden Circle responsive */
 @media (max-width: 768px) {
-    .d-golden-circle {
-        flex-direction: column;
-        min-height: auto;
-        gap: 1.5rem;
-        padding: 1rem 0;
-    }
     .d-gc-ring {
-        position: relative;
-        width: 100% !important;
-        height: auto !important;
-        border-radius: 16px;
-        padding: 1.5rem;
+        flex-direction: column;
+        text-align: center;
+        padding: 1.8rem;
+        gap: 1rem;
     }
-    .d-gc-content {
-        max-width: 100%;
-    }
-    .d-gc-content h3 { font-size: 1.1rem; }
-    .d-gc-content p { font-size: 0.85rem !important; }
+    .d-gc-how, .d-gc-what { width: 100%; }
+    .d-gc-ring::before { width: 100%; height: 4px; border-radius: 20px 20px 0 0; }
+    .d-gc-step { margin: 0 auto; }
+    .d-gc-connector { transform: rotate(90deg); }
 }

@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FNOGUERA CLUSTER - An&aacute;lisis Predictivo</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/logo-FNC.png') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        * { font-family: 'Inter', system-ui, sans-serif; margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary: #0b1d3a;
+            --primary-light: #142d5e;
+            --accent: #1e90ff;
+            --accent2: #00d4ff;
+            --success: #00c853;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gold: #ffd700;
+            --bg: #f0f4f8;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --sidebar-bg: #0b1d3a;
+            --sidebar-text: rgba(255,255,255,0.7);
+            --border: rgba(0,0,0,0.06);
+        }
+
+        [data-theme="dark"] {
+            --bg: #0b1120;
+            --card-bg: #111b2e;
+            --text: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border: rgba(255,255,255,0.06);
+            --sidebar-bg: #060f1f;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body::after {
+            content: '';
+            position: fixed; inset: 0;
+            background-image:
+                radial-gradient(circle at 20% 50%, rgba(30,144,255,0.04) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(0,200,83,0.03) 0%, transparent 50%);
+            pointer-events: none; z-index: 0;
+        }
+        main.main-content { position: relative; z-index: 1; }
+
+        /* ── Sidebar ── */
+        .navbar-institutional {
+            background: var(--sidebar-bg);
+            padding: 0.5rem;
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            width: 220px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            box-shadow: 2px 0 15px rgba(0,0,0,0.15);
+            transition: width 0.3s ease, transform 0.3s ease;
+        }
+        .navbar-institutional.collapsed { width: 64px; }
+        .navbar-brand-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0.75rem 0.5rem 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 0.5rem;
+            gap: 0.35rem;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        .navbar-brand-group .sidebar-logo { height: 36px; width: auto; object-fit: contain; flex-shrink: 0; }
+        .navbar-brand-group .logo-text { color: white; font-weight: 800; font-size: 0.85rem; letter-spacing: 0.5px; text-align: center; line-height: 1.2; }
+        .collapsed .navbar-brand-group .logo-text,
+        .collapsed .sidebar-user-section .user-info-text,
+        .collapsed .navbar-link span,
+        .collapsed .sidebar-pin-btn { opacity: 0; pointer-events: none; }
+        .navbar-toggle-btn { display: none; background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; padding: 0.25rem 0.5rem; }
+        .sidebar-user-section {
+            display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 0.5rem;
+            white-space: nowrap; overflow: hidden;
+        }
+        .sidebar-user-section .user-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid rgba(255,255,255,0.2); }
+        .sidebar-user-section .user-info-text { display: flex; flex-direction: column; min-width: 0; transition: opacity 0.2s ease; }
+        .sidebar-user-section .user-name { color: white; font-weight: 600; font-size: 0.8rem; margin: 0; line-height: 1.2; }
+        .sidebar-user-section .user-badge { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.3px; align-self: flex-start; }
+        .navbar-nav-group { display: flex; flex-direction: column; align-items: stretch; gap: 0.2rem; flex: 1; overflow-y: auto; overflow-x: hidden; }
+        .navbar-link {
+            display: flex; align-items: center; gap: 0.6rem; padding: 0.55rem 0.5rem;
+            color: rgba(255,255,255,0.8); text-decoration: none; border-radius: 0.5rem;
+            transition: all 0.3s ease; font-weight: 600; font-size: 0.82rem;
+            white-space: nowrap; overflow: hidden;
+        }
+        .navbar-link i { width: 20px; text-align: center; flex-shrink: 0; font-size: 0.95rem; }
+        .navbar-link span { transition: opacity 0.2s ease; }
+        .navbar-link:hover { background: rgba(255,255,255,0.1); color: white; }
+        .navbar-link.active { background: white; color: var(--primary); }
+        .navbar-link.logout { color: #ffbaba; }
+        .navbar-link.logout:hover { background: rgba(255,77,77,0.1); color: #ffbaba; }
+        .navbar-link .badge-predictive {
+            font-size: 0.55rem; padding: 2px 6px; border-radius: 6px;
+            background: linear-gradient(135deg, #1e90ff, #00d4ff); color: white;
+            margin-left: auto; font-weight: 700; letter-spacing: 0.3px;
+        }
+        .collapsed .navbar-link .badge-predictive { display: none; }
+        .sidebar-pin-btn {
+            position: absolute; bottom: 0.5rem; right: -12px;
+            width: 24px; height: 24px; background: var(--sidebar-bg);
+            border: 2px solid rgba(255,255,255,0.3); border-radius: 50%;
+            color: white; font-size: 0.6rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; z-index: 5;
+            transition: all 0.3s ease; opacity: 0;
+        }
+        .navbar-institutional:hover .sidebar-pin-btn { opacity: 1; }
+        .sidebar-pin-btn:hover { background: #2b4c7e; transform: scale(1.15); }
+        .sidebar-pin-btn.pinned { opacity: 1; background: white; color: var(--primary); border-color: white; }
+        .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1049; }
+        .sidebar-overlay.active { display: block; }
+
+        .main-content {
+            margin-left: 220px;
+            padding: 2rem;
+            min-height: 100vh;
+            transition: margin-left 0.3s ease;
+        }
+        .main-content.sidebar-collapsed { margin-left: 64px; }
+
+        /* ── Glass card ── */
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 1.25rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .glass-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+        }
+
+        /* ── Page header ── */
+        .page-header {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;
+        }
+        .page-header h1 { font-size: 1.6rem; font-weight: 800; margin: 0; }
+        .page-header .subtitle { color: var(--text-muted); font-size: 0.85rem; margin: 0.2rem 0 0; }
+
+        /* ── Filter bar ── */
+        .filter-bar {
+            display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+            padding: 1rem 1.5rem; margin-bottom: 1.5rem;
+        }
+        .filter-group { display: flex; align-items: center; gap: 0.5rem; }
+        .filter-group label { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .filter-select, .filter-input {
+            background: var(--card-bg); border: 1px solid var(--border);
+            border-radius: 10px; padding: 0.45rem 1rem; font-size: 0.82rem;
+            color: var(--text); outline: none; transition: border-color 0.2s;
+        }
+        .filter-select:focus, .filter-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(30,144,255,0.1); }
+        .page-header-logo { height:32px;width:auto;opacity:0.85;flex-shrink:0; }
+
+        .slurm-badge {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.35rem 1rem; border-radius: 20px;
+            background: rgba(30,144,255,0.08); border: 1px solid rgba(30,144,255,0.15);
+            color: var(--accent); font-size: 0.72rem; font-weight: 500; white-space: nowrap;
+        }
+        .slurm-badge i { font-size: 0.7rem; }
+
+        /* ── Chart ── */
+        .chart-wrapper {
+            position: relative;
+            height: 400px;
+            padding: 1rem 0.5rem 0;
+        }
+
+        /* ── Metric cards ── */
+        .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 1.5rem; }
+        .metric-card { padding: 1.5rem; position: relative; overflow: hidden; }
+        .metric-card .m-icon {
+            width: 44px; height: 44px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; margin-bottom: 1rem;
+        }
+        .metric-card .m-label { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.3rem; }
+        .metric-card .m-value { font-size: 1.5rem; font-weight: 800; margin-bottom: 0.3rem; }
+        .metric-card .m-desc { font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; }
+        .metric-card .m-bar {
+            height: 4px; border-radius: 4px; margin-top: 1rem;
+            background: rgba(255,255,255,0.06);
+            overflow: hidden;
+        }
+        .metric-card .m-bar-fill {
+            height: 100%; border-radius: 4px;
+            transition: width 1s ease;
+        }
+        .metric-card .m-tag {
+            display: inline-flex; align-items: center; gap: 0.3rem;
+            font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.5px; padding: 0.2rem 0.7rem; border-radius: 6px;
+            margin-top: 0.5rem;
+        }
+        .m-alert-red { background: rgba(239,68,68,0.12); color: #ef4444; border: 1px solid rgba(239,68,68,0.2); }
+        .m-alert-amber { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
+        .m-alert-green { background: rgba(0,200,83,0.12); color: #00c853; border: 1px solid rgba(0,200,83,0.2); }
+        .m-alert-blue { background: rgba(30,144,255,0.12); color: #1e90ff; border: 1px solid rgba(30,144,255,0.2); }
+
+        .metric-card.card-danger .m-icon { background: rgba(239,68,68,0.12); color: #ef4444; }
+        .metric-card.card-amber .m-icon { background: rgba(245,158,11,0.12); color: #f59e0b; }
+        .metric-card.card-blue .m-icon { background: rgba(30,144,255,0.12); color: #1e90ff; }
+        .metric-card.card-green .m-icon { background: rgba(0,200,83,0.12); color: #00c853; }
+        .metric-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            border-radius: 1.25rem 1.25rem 0 0;
+        }
+        .metric-card.card-danger::before { background: linear-gradient(90deg, #ef4444, #f87171); }
+        .metric-card.card-amber::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+        .metric-card.card-blue::before { background: linear-gradient(90deg, #1e90ff, #00d4ff); }
+        .metric-card.card-green::before { background: linear-gradient(90deg, #00c853, #69f0ae); }
+
+        /* ── Jobs table mini ── */
+        .job-warning { font-size: 0.82rem; line-height: 1.6; }
+        .job-warning strong { color: var(--text); }
+        /* ── Available resources ── */
+        .avail-section { margin-bottom:1.5rem; }
+        .avail-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem; }
+        .avail-card {
+            display:flex;align-items:center;gap:1rem;
+            background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:14px;padding:1rem 1.25rem;
+            transition:transform 0.3s ease,box-shadow 0.3s ease;
+        }
+        .avail-card:hover { transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.06); }
+        .avail-canvas { width:64px !important;height:64px !important;flex-shrink:0; }
+        .avail-info { flex:1;display:flex;flex-direction:column;gap:0.25rem; }
+        .avail-label { font-size:0.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px; }
+        .avail-num { font-size:1.1rem;font-weight:700;color:var(--text); }
+        .avail-bar { height:5px;background:rgba(255,255,255,0.06);border-radius:5px;overflow:hidden;margin-top:0.15rem; }
+        .avail-bar-fill { display:block;height:100%;border-radius:5px;transition:width 1s ease; }
+        @media (max-width:768px) { .avail-grid { grid-template-columns:1fr; } }
+
+        /* ── Simulator ── */
+        .simulator-section { margin-bottom: 1.5rem; }
+        .simu-header { display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.25rem; }
+        .simu-body { display:grid;grid-template-columns:1fr 1fr;gap:2rem; }
+        .simu-form-grid { display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem; }
+        .simu-field label { display:block;font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:0.4rem; }
+        .simu-field label i { margin-right:0.3rem; }
+        .simu-input-group { display:flex;align-items:center;gap:0; }
+        .simu-btn-step {
+            width:36px;height:36px;border:none;background:var(--card-bg);border:1px solid var(--border);
+            color:var(--text);font-size:1.1rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;
+            transition:background 0.2s, border-color 0.2s;
+        }
+        .simu-btn-step:first-child { border-radius:10px 0 0 10px; }
+        .simu-btn-step:last-child { border-radius:0 10px 10px 0; }
+        .simu-btn-step:hover { background:rgba(30,144,255,0.08);border-color:var(--accent); }
+        .simu-input {
+            width:72px;height:36px;border:1px solid var(--border);border-left:none;border-right:none;
+            background:var(--card-bg);color:var(--text);font-size:0.95rem;font-weight:700;text-align:center;
+            outline:none;transition:border-color 0.2s;
+            -moz-appearance:textfield;
+        }
+        .simu-input::-webkit-inner-spin-button,.simu-input::-webkit-outer-spin-button { -webkit-appearance:none;margin:0; }
+        .simu-input:focus { border-color:var(--accent); }
+        .simu-btn-calc {
+            width:100%;padding:0.7rem;border:none;border-radius:12px;
+            background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;
+            font-size:0.9rem;font-weight:700;cursor:pointer;transition:all 0.3s ease;display:flex;align-items:center;justify-content:center;gap:0.5rem;
+        }
+        .simu-btn-calc:hover { transform:translateY(-2px);box-shadow:0 6px 20px rgba(30,144,255,0.25); }
+        .simu-result {
+            background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:16px;
+            padding:1.5rem;display:flex;flex-direction:column;justify-content:center;min-height:200px;
+        }
+        .simu-result-placeholder { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.8rem;color:var(--text-muted);text-align:center;font-size:0.88rem; }
+        .simu-result-placeholder i { font-size:2rem;opacity:0.25; }
+        .simu-veredict {
+            font-size:1.1rem;font-weight:700;padding:0.6rem 1rem;border-radius:10px;margin-bottom:1rem;
+            display:flex;align-items:center;gap:0.6rem;
+        }
+        .simu-veredict.ok { background:rgba(0,200,83,0.1);color:var(--success);border:1px solid rgba(0,200,83,0.2); }
+        .simu-veredict.fail { background:rgba(239,68,68,0.1);color:var(--danger);border:1px solid rgba(239,68,68,0.2); }
+        .simu-veredict.warn { background:rgba(245,158,11,0.1);color:var(--warning);border:1px solid rgba(245,158,11,0.2); }
+        .simu-breakdown { display:flex;flex-direction:column;gap:0.6rem; }
+        .simu-bd-row { display:flex;justify-content:space-between;align-items:center;padding:0.4rem 0;border-bottom:1px solid var(--border);font-size:0.85rem; }
+        .simu-bd-row:last-child { border-bottom:none; }
+        .simu-bd-label { color:var(--text-muted); }
+        .simu-bd-value { font-weight:600; }
+        .simu-bd-value.over { color:var(--danger); }
+        .simu-bd-value.ok { color:var(--success); }
+        .simu-badge-rec {
+            display:inline-flex;align-items:center;gap:0.4rem;padding:0.3rem 0.8rem;border-radius:8px;
+            font-size:0.75rem;font-weight:600;
+        }
+        @media (max-width:768px) { .simu-body { grid-template-columns:1fr; } .simu-form-grid { grid-template-columns:1fr; } }
+
+        .job-pending-badge {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            padding: 0.2rem 0.7rem; border-radius: 20px;
+            font-size: 0.7rem; font-weight: 700;
+            background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2);
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .main-content { margin-left: 0 !important; padding: 1rem !important; }
+            .navbar-institutional { transform: translateX(-100%); }
+            .navbar-institutional.open { transform: translateX(0); }
+            .navbar-toggle-btn { display: block; }
+            .page-header { flex-direction: column; }
+            .metric-grid { grid-template-columns: 1fr; }
+            .chart-wrapper { height: 280px; }
+            .filter-bar { flex-direction: column; align-items: stretch; }
+            .filter-group { flex-direction: column; align-items: stretch; }
+        }
+        @media (max-width: 1024px) and (min-width: 769px) {
+            .metric-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (min-width: 769px) {
+            .sidebar-overlay { display: none !important; }
+        }
+    </style>
+</head>
+<body data-theme="dark">
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <nav class="navbar-institutional" id="sidebar">
+        <div class="navbar-brand-group">
+            <button class="navbar-toggle-btn" id="sidebarToggle" aria-label="Men&uacute;">&#9776;</button>
+            <img src="{{ url_for('static', filename='img/logo-FNC.png') }}" alt="Logo FNC" class="sidebar-logo">
+            <span class="logo-text">FNOGUERA<br>CLUSTER</span>
+        </div>
+
+        <div class="sidebar-user-section">
+            <img src="https://ui-avatars.com/api/?name=Fernando+Noguera&background=4f46e5&color=fff&size=36&rounded=true&bold=true" class="user-avatar" alt="avatar">
+            <div class="user-info-text">
+                <p class="user-name">Fernando N.</p>
+                <span class="badge user-badge" style="background:rgba(99,102,241,0.2);color:#818cf8;padding:2px 8px;">ADMIN</span>
+            </div>
+        </div>
+
+        <div class="navbar-nav-group">
+            <a href="/dashboard" class="navbar-link">
+                <i class="fas fa-chart-line"></i><span>Resumen</span>
+            </a>
+            <a href="/noticias" class="navbar-link">
+                <i class="fas fa-newspaper"></i><span>Noticias</span>
+            </a>
+            <a href="/proyectos" class="navbar-link">
+                <i class="fas fa-project-diagram"></i><span>Proyectos</span>
+            </a>
+            <a href="/recursos" class="navbar-link">
+                <i class="fas fa-server"></i><span>Recursos</span>
+            </a>
+            <a href="/analisis_predictivo" class="navbar-link active">
+                <i class="fas fa-chart-simple"></i><span>An&aacute;lisis Predictivo</span>
+                <span class="badge-predictive">BETA</span>
+            </a>
+            <a href="/solicitud" class="navbar-link">
+                <i class="fas fa-file-alt"></i><span>Solicitud</span>
+            </a>
+            <a href="/perfil" class="navbar-link">
+                <i class="fas fa-user"></i><span>Perfil</span>
+            </a>
+            <a href="/usuarios" class="navbar-link">
+                <i class="fas fa-users"></i><span>Usuarios</span>
+            </a>
+            <a href="/administracion" class="navbar-link">
+                <i class="fas fa-code"></i><span>Panel de Admin.</span>
+            </a>
+        </div>
+
+        <div class="mt-auto" style="position:relative">
+            <a href="#" class="navbar-link" onclick="toggleTheme(); return false;">
+                <i class="fas fa-moon"></i><span>Modo oscuro</span>
+            </a>
+            <a href="/logout" class="navbar-link logout">
+                <i class="fas fa-sign-out-alt"></i><span>Salir</span>
+            </a>
+            <button class="sidebar-pin-btn" id="sidebarPinBtn" title="Anclar sidebar">
+                <i class="fas fa-thumbtack"></i>
+            </button>
+        </div>
+    </nav>
+
+    <main class="main-content">
+
+        <!-- ===== PAGE HEADER ===== -->
+        <div class="page-header">
+            <div style="display:flex;align-items:center;gap:1rem;">
+                <img src="{{ url_for('static', filename='img/logo-FNC.png') }}" alt="FNC" class="page-header-logo">
+                <div>
+                    <h1><i class="fas fa-chart-simple" style="color: var(--accent); margin-right: 0.5rem;"></i> An&aacute;lisis Predictivo</h1>
+                    <p class="subtitle">Proyecci&oacute;n de saturaci&oacute;n del cl&uacute;ster basada en m&eacute;tricas hist&oacute;ricas de SLURM</p>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                <span class="slurm-badge"><i class="fas fa-database"></i> Datos sincronizados desde SLURM (sacct / sshare)</span>
+                <span class="slurm-badge" style="background:rgba(0,200,83,0.08);border-color:rgba(0,200,83,0.15);color:var(--success);">
+                    <i class="fas fa-circle" style="font-size:0.5rem;"></i> &Uacute;ltima sinc.: hoy 10:32
+                </span>
+            </div>
+        </div>
+
+        <!-- ===== FILTER BAR ===== -->
+        <div class="glass-card filter-bar">
+            <div class="filter-group">
+                <label><i class="far fa-clock"></i> Vista</label>
+                <select class="filter-select" id="viewSelect" onchange="updateChartView(this.value)">
+                    <option value="day">Uso por D&iacute;a</option>
+                    <option value="month">Uso por Mes</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label><i class="far fa-calendar"></i> Desde</label>
+                <input type="date" class="filter-input" id="dateFrom" value="2026-01-01">
+            </div>
+            <div class="filter-group">
+                <label><i class="far fa-calendar"></i> Hasta</label>
+                <input type="date" class="filter-input" id="dateTo" value="2026-12-31">
+            </div>
+            <div class="filter-group" style="margin-left:auto;">
+                <span class="slurm-badge"><i class="fas fa-terminal"></i> sacct --format=JobID,CPUTime,ReqMem --start=2026-01-01</span>
+            </div>
+        </div>
+
+        <!-- ===== RECURSOS DISPONIBLES (AHORA) ===== -->
+        <div class="glass-card avail-section">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:1rem;">
+                <div>
+                    <h5 style="font-weight:700;margin:0;font-size:1rem;"><i class="fas fa-circle-info" style="color:var(--success);margin-right:0.4rem;"></i> Recursos Disponibles Ahora</h5>
+                    <small style="color:var(--text-muted);">Estado actual del cl&uacute;ster &middot; 4 nodos &middot; Capacidad total</small>
+                </div>
+                <span class="slurm-badge" style="background:rgba(0,200,83,0.08);border-color:rgba(0,200,83,0.15);color:var(--success);">
+                    <i class="fas fa-circle" style="font-size:0.5rem;"></i> Cluster operativo
+                </span>
+            </div>
+            <div class="avail-grid">
+                <div class="avail-card">
+                    <canvas id="availCPUChart" class="avail-canvas"></canvas>
+                    <div class="avail-info">
+                        <span class="avail-label">CPUs</span>
+                        <span class="avail-num" id="availCPUNum">-- / 128</span>
+                        <span class="avail-bar"><span class="avail-bar-fill" id="availCPUBar" style="width:60%;background:#1e90ff;"></span></span>
+                    </div>
+                </div>
+                <div class="avail-card">
+                    <canvas id="availRAMChart" class="avail-canvas"></canvas>
+                    <div class="avail-info">
+                        <span class="avail-label">Memoria RAM</span>
+                        <span class="avail-num" id="availRAMNum">-- / 512 GB</span>
+                        <span class="avail-bar"><span class="avail-bar-fill" id="availRAMBar" style="width:55%;background:#00c853;"></span></span>
+                    </div>
+                </div>
+                <div class="avail-card">
+                    <canvas id="availGPUChart" class="avail-canvas"></canvas>
+                    <div class="avail-info">
+                        <span class="avail-label">GPUs</span>
+                        <span class="avail-num" id="availGPUNum">-- / 4</span>
+                        <span class="avail-bar"><span class="avail-bar-fill" id="availGPUBar" style="width:25%;background:#a855f7;"></span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== CHART ===== -->
+        <div class="glass-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.5rem;">
+                <div>
+                    <h5 style="font-weight:700;margin:0;font-size:1rem;">Proyecci&oacute;n de Uso de Recursos</h5>
+                    <small style="color:var(--text-muted);">Uso hist&oacute;rico + proyecci&oacute;n a 60 d&iacute;as &middot; Capacidad total: 128 CPUs / 512 GB / 4 GPUs</small>
+                </div>
+                <div style="display:flex;gap:1rem;font-size:0.75rem;">
+                    <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#1e90ff;margin-right:4px;"></span> CPU</span>
+                    <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#00c853;margin-right:4px;"></span> Memoria</span>
+                    <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#ef4444;margin-right:4px;"></span> L&iacute;mite cr&iacute;tico</span>
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="predictiveChart"></canvas>
+            </div>
+        </div>
+
+        <!-- ===== SIMULADOR DE CAPACIDAD ===== -->
+        <div class="glass-card simulator-section" id="simulador">
+            <div class="simu-header">
+                <div>
+                    <h5 style="font-weight:700;margin:0;font-size:1rem;"><i class="fas fa-flask" style="color:var(--accent);margin-right:0.5rem;"></i> Simulador de Capacidad</h5>
+                    <small style="color:var(--text-muted);">Evalu&aacute; si tu solicitud de recursos puede ser atendida con la infraestructura actual</small>
+                </div>
+                <span class="slurm-badge" style="flex-shrink:0;"><i class="fas fa-cubes"></i> Capacidad total: 4 nodos &middot; 128 CPUs &middot; 512 GB &middot; 4 GPUs</span>
+            </div>
+            <div class="simu-body">
+                <div class="simu-form">
+                    <div class="simu-form-grid">
+                        <div class="simu-field">
+                            <label><i class="fas fa-server"></i> Nodos solicitados</label>
+                            <div class="simu-input-group">
+                                <button class="simu-btn-step" onclick="adjustSimuField('nodes', -1)">&minus;</button>
+                                <input type="number" class="simu-input" id="simNodes" value="1" min="1" max="20">
+                                <button class="simu-btn-step" onclick="adjustSimuField('nodes', 1)">+</button>
+                            </div>
+                        </div>
+                        <div class="simu-field">
+                            <label><i class="fas fa-microchip"></i> CPUs por nodo</label>
+                            <div class="simu-input-group">
+                                <button class="simu-btn-step" onclick="adjustSimuField('cpu', -4)">&minus;</button>
+                                <input type="number" class="simu-input" id="simCPU" value="8" min="1" max="32">
+                                <button class="simu-btn-step" onclick="adjustSimuField('cpu', 4)">+</button>
+                            </div>
+                        </div>
+                        <div class="simu-field">
+                            <label><i class="fas fa-memory"></i> RAM por nodo (GB)</label>
+                            <div class="simu-input-group">
+                                <button class="simu-btn-step" onclick="adjustSimuField('ram', -16)">&minus;</button>
+                                <input type="number" class="simu-input" id="simRAM" value="32" min="1" max="128">
+                                <button class="simu-btn-step" onclick="adjustSimuField('ram', 16)">+</button>
+                            </div>
+                        </div>
+                        <div class="simu-field">
+                            <label><i class="fas fa-video"></i> GPUs por nodo</label>
+                            <div class="simu-input-group">
+                                <button class="simu-btn-step" onclick="adjustSimuField('gpu', -1)">&minus;</button>
+                                <input type="number" class="simu-input" id="simGPU" value="0" min="0" max="4">
+                                <button class="simu-btn-step" onclick="adjustSimuField('gpu', 1)">+</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="simu-btn-calc" onclick="simulateCapacity()">
+                        <i class="fas fa-calculator"></i> Calcular disponibilidad
+                    </button>
+                </div>
+                <div class="simu-result" id="simResult">
+                    <div class="simu-result-placeholder" id="simPlaceholder">
+                        <i class="fas fa-arrow-right"></i>
+                        <span>Configur&aacute; los recursos y presion&aacute; <strong>Calcular</strong></span>
+                    </div>
+                    <div class="simu-result-content" id="simResultContent" style="display:none;">
+                        <div class="simu-veredict" id="simVeredict"></div>
+                        <div class="simu-breakdown" id="simBreakdown"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== METRIC CARDS ===== -->
+        <div class="metric-grid" id="metricGrid">
+            <!-- Card 1: Saturation date (generated by JS) -->
+            <div class="glass-card metric-card card-danger" id="cardSaturacion">
+                <div class="m-icon"><i class="fas fa-triangle-exclamation"></i></div>
+                <div class="m-label">Momento de Saturaci&oacute;n</div>
+                <div class="m-value" id="satDate">Calculando...</div>
+                <div class="m-desc" id="satDesc">Fecha estimada en que la demanda del cl&uacute;ster superar&aacute; el 100% de capacidad.</div>
+                <span class="m-tag m-alert-red" id="satTag"><i class="fas fa-bolt"></i> CR&Iacute;TICO</span>
+            </div>
+
+            <!-- Card 2: Resource deficit -->
+            <div class="glass-card metric-card card-amber" id="cardDeficit">
+                <div class="m-icon"><i class="fas fa-microchip"></i></div>
+                <div class="m-label">D&eacute;ficit de Recursos</div>
+                <div class="m-value" id="defText">Calculando...</div>
+                <div class="m-desc" id="defDesc">Recursos adicionales necesarios para cubrir la demanda proyectada post-saturaci&oacute;n.</div>
+                <div class="m-bar"><div class="m-bar-fill" id="defBar" style="width:0%;background:linear-gradient(90deg,#f59e0b,#fbbf24);"></div></div>
+            </div>
+
+            <!-- Card 3: SLURM queue status -->
+            <div class="glass-card metric-card card-blue" id="cardJobs">
+                <div class="m-icon"><i class="fas fa-list-ol"></i></div>
+                <div class="m-label">Estado de Cola SLURM</div>
+                <div class="m-value" id="jobsPendientes">Calculando...</div>
+                <div class="m-desc job-warning" id="jobsDesc">
+                    Al superar el l&iacute;mite del 100%, los nuevos trabajos entrantes no podr&aacute;n asignarse y pasar&aacute;n a estado
+                    <span class="job-pending-badge"><i class="fas fa-hourglass"></i> PENDING</span>
+                    por falta de recursos disponibles.
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // ── Theme toggle ──
+        function toggleTheme() {
+            const html = document.body;
+            const current = html.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+        }
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) document.body.setAttribute('data-theme', savedTheme);
+
+        // ── Sidebar ──
+        document.getElementById('sidebarToggle').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebarOverlay').classList.toggle('active');
+        });
+        document.getElementById('sidebarOverlay').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('sidebarOverlay').classList.remove('active');
+        });
+        const pinBtn = document.getElementById('sidebarPinBtn');
+        pinBtn.addEventListener('click', () => {
+            const sidebar = document.getElementById('sidebar');
+            const main = document.querySelector('.main-content');
+            sidebar.classList.toggle('collapsed');
+            main.classList.toggle('sidebar-collapsed');
+            pinBtn.classList.toggle('pinned');
+        });
+
+        // ── Generate realistic mock data ──
+        function generateData() {
+            const days = 180; // 6 months
+            const labels = [];
+            const cpuHistory = [];
+            const memHistory = [];
+            const cpuProjection = [];
+            const memProjection = [];
+            const projDays = 60;
+            const totalDays = days + projDays;
+
+            const startDate = new Date(2026, 0, 1);
+
+            for (let i = 0; i < totalDays; i++) {
+                const d = new Date(startDate);
+                d.setDate(d.getDate() + i);
+                labels.push(d.toLocaleDateString('es', { day: '2-digit', month: 'short' }));
+
+                if (i < days) {
+                    // Historical: fluctuating between 40-85%
+                    const trend = Math.sin(i / 25) * 15 + Math.sin(i / 7) * 6 + Math.cos(i / 13) * 5;
+                    const baseCPU = 58 + trend;
+                    const baseMEM = 52 + trend * 0.9 + Math.sin(i / 11) * 4;
+                    cpuHistory.push(Math.round(Math.min(Math.max(baseCPU, 30), 88)));
+                    memHistory.push(Math.round(Math.min(Math.max(baseMEM, 28), 82)));
+                    cpuProjection.push(null);
+                    memProjection.push(null);
+                } else {
+                    // Projection: upward trend crossing 100%
+                    const progress = (i - days) / projDays;
+                    const accel = progress * progress * 1.5;
+                    const lastCPU = cpuHistory[cpuHistory.length - 1];
+                    const lastMEM = memHistory[memHistory.length - 1];
+                    const noise = Math.sin(i * 2) * 3 + Math.cos(i * 0.7) * 2;
+                    const projCPU = Math.round(Math.min(lastCPU + accel * 35 + noise, 115));
+                    const projMEM = Math.round(Math.min(lastMEM + accel * 32 + noise * 0.8, 110));
+                    cpuHistory.push(null);
+                    memHistory.push(null);
+                    cpuProjection.push(projCPU);
+                    memProjection.push(projMEM);
+                }
+            }
+
+            // Find crossing point (where projection first exceeds 100%)
+            let crossIndex = -1;
+            for (let i = 0; i < cpuProjection.length; i++) {
+                if (cpuProjection[i] !== null && cpuProjection[i] >= 100) {
+                    crossIndex = i;
+                    break;
+                }
+            }
+
+            // Build annotation for limit line
+            const limitData = [];
+            for (let i = 0; i < totalDays; i++) limitData.push(100);
+
+            return { labels, cpuHistory, memHistory, cpuProjection, memProjection, limitData, crossIndex, startDate, projDays, days };
+        }
+
+        // ── Render chart ──
+        let chart = null;
+        const data = generateData();
+
+        function getProjectionDates() {
+            const lastHistIdx = data.days - 1;
+            const projStart = new Date(data.startDate);
+            projStart.setDate(projStart.getDate() + lastHistIdx);
+            const projEnd = new Date(data.startDate);
+            projEnd.setDate(projEnd.getDate() + data.days + data.projDays - 1);
+            return { projStart, projEnd };
+        }
+
+        function renderChart(viewType) {
+            const ctx = document.getElementById('predictiveChart').getContext('2d');
+
+            if (chart) {
+                chart.destroy();
+            }
+
+            const labels = viewType === 'month'
+                ? data.labels.filter((_, i) => i % 5 === 0 || i === data.labels.length - 1)
+                : data.labels;
+
+            const step = viewType === 'month' ? 5 : 1;
+
+            const cpuHist = data.cpuHistory.map((v, i) => i % step === 0 || i === data.labels.length - 1 ? v : null);
+            const memHist = data.memHistory.map((v, i) => i % step === 0 || i === data.labels.length - 1 ? v : null);
+            const cpuProj = data.cpuProjection.map((v, i) => i % step === 0 || i === data.labels.length - 1 ? v : null);
+            const memProj = data.memProjection.map((v, i) => i % step === 0 || i === data.labels.length - 1 ? v : null);
+
+            const gridColor = getComputedStyle(document.body).getPropertyValue('--border').trim() || 'rgba(255,255,255,0.04)';
+            const textColor = getComputedStyle(document.body).getPropertyValue('--text-muted').trim() || '#94a3b8';
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'CPU (hist&oacute;rico)',
+                            data: cpuHist,
+                            borderColor: '#1e90ff',
+                            backgroundColor: 'rgba(30,144,255,0.08)',
+                            borderWidth: 2.5,
+                            pointRadius: 0,
+                            pointHitRadius: 8,
+                            tension: 0.3,
+                            fill: false,
+                            spanGaps: true,
+                        },
+                        {
+                            label: 'CPU (proyecci&oacute;n)',
+                            data: cpuProj,
+                            borderColor: '#1e90ff',
+                            backgroundColor: 'rgba(30,144,255,0.05)',
+                            borderWidth: 2.5,
+                            borderDash: [6, 4],
+                            pointRadius: 0,
+                            pointHitRadius: 8,
+                            tension: 0.3,
+                            fill: false,
+                            spanGaps: true,
+                        },
+                        {
+                            label: 'Memoria (hist&oacute;rico)',
+                            data: memHist,
+                            borderColor: '#00c853',
+                            backgroundColor: 'rgba(0,200,83,0.08)',
+                            borderWidth: 2.5,
+                            pointRadius: 0,
+                            pointHitRadius: 8,
+                            tension: 0.3,
+                            fill: false,
+                            spanGaps: true,
+                        },
+                        {
+                            label: 'Memoria (proyecci&oacute;n)',
+                            data: memProj,
+                            borderColor: '#00c853',
+                            backgroundColor: 'rgba(0,200,83,0.05)',
+                            borderWidth: 2.5,
+                            borderDash: [6, 4],
+                            pointRadius: 0,
+                            pointHitRadius: 8,
+                            tension: 0.3,
+                            fill: false,
+                            spanGaps: true,
+                        },
+                        {
+                            label: 'L&iacute;mite cr&iacute;tico (100%)',
+                            data: data.limitData,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239,68,68,0.06)',
+                            borderWidth: 2,
+                            borderDash: [4, 4],
+                            pointRadius: 0,
+                            pointHitRadius: 0,
+                            tension: 0,
+                            fill: '+1',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(15,23,42,0.9)',
+                            titleColor: '#f1f5f9',
+                            bodyColor: '#cbd5e1',
+                            borderColor: 'rgba(255,255,255,0.06)',
+                            borderWidth: 1,
+                            padding: 12,
+                            cornerRadius: 10,
+                            callbacks: {
+                                label: function(ctx) {
+                                    if (ctx.parsed.y === null) return null;
+                                    return ctx.dataset.label + ': ' + ctx.parsed.y + '%';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: gridColor, drawBorder: false },
+                            ticks: {
+                                color: textColor,
+                                font: { size: 10, family: 'Inter' },
+                                maxTicksLimit: 20,
+                                maxRotation: 45,
+                            }
+                        },
+                        y: {
+                            min: 0,
+                            max: 120,
+                            grid: { color: gridColor, drawBorder: false },
+                            ticks: {
+                                color: textColor,
+                                font: { size: 10, family: 'Inter' },
+                                callback: function(v) { return v + '%'; },
+                                stepSize: 20
+                            }
+                        }
+                    },
+                    elements: {
+                        point: { radius: 0 }
+                    }
+                },
+                plugins: [{
+                    id: 'limitZone',
+                    beforeDraw: function(chart) {
+                        const yScale = chart.scales.y;
+                        const xScale = chart.scales.x;
+                        const ctx = chart.ctx;
+                        if (!yScale || !xScale) return;
+
+                        // Find the crossing index in original data
+                        const crossIdx = data.crossIndex;
+                        if (crossIdx === -1) return;
+
+                        // Map to visible labels
+                        const allLabels = data.labels;
+                        const visibleLabels = chart.data.labels;
+                        const lastHistIdx = data.days - 1;
+
+                        // Draw zone from crossing to end
+                        const crossLabel = allLabels[crossIdx];
+                        const crossPixel = xScale.getPixelForValue(crossLabel);
+                        const rightPixel = xScale.right;
+
+                        if (crossPixel < xScale.left) return;
+
+                        // Semi-transparent red zone
+                        const gradient = ctx.createLinearGradient(0, yScale.getPixelForValue(100), 0, yScale.getPixelForValue(101));
+                        ctx.fillStyle = 'rgba(239,68,68,0.06)';
+                        ctx.fillRect(crossPixel, yScale.getPixelForValue(100), rightPixel - crossPixel, yScale.getPixelForValue(105) - yScale.getPixelForValue(100));
+
+                        // Vertical dashed line at crossing
+                        ctx.setLineDash([5, 4]);
+                        ctx.strokeStyle = 'rgba(239,68,68,0.3)';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(crossPixel, yScale.top);
+                        ctx.lineTo(crossPixel, yScale.bottom);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+                }]
+            });
+
+            updateMetrics(data.crossIndex);
+        }
+
+        // ── Update metric cards ──
+        function updateMetrics(crossIdx) {
+            if (crossIdx === -1) {
+                document.getElementById('satDate').textContent = 'No proyectado';
+                document.getElementById('satDesc').textContent = 'No se detecta saturaci&oacute;n en el per&iacute;odo proyectado.';
+                document.getElementById('satTag').className = 'm-tag m-alert-green';
+                document.getElementById('satTag').innerHTML = '<i class="fas fa-check"></i> ESTABLE';
+                document.getElementById('cardSaturacion').className = 'glass-card metric-card card-green';
+                return;
+            }
+
+            // Saturation date
+            const satDate = new Date(data.startDate);
+            satDate.setDate(satDate.getDate() + crossIdx);
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('satDate').textContent = satDate.toLocaleDateString('es', options);
+            document.getElementById('satDesc').textContent = 'Fecha estimada en que la demanda del cl&uacute;ster superar&aacute; el 100% de capacidad basado en la tendencia actual.';
+
+            // Resource deficit
+            const cpuOver = Math.round((112 - 88) * 2.5);
+            const memOver = Math.round((108 - 82) * 3.2);
+            const defMonth = satDate.toLocaleDateString('es', { month: 'long', year: 'numeric' });
+            document.getElementById('defText').innerHTML = `+${cpuOver} CPUs &middot; +${memOver} GB`;
+            document.getElementById('defDesc').textContent = `Recursos adicionales necesarios para cubrir la demanda proyectada para ${defMonth}.`;
+            document.getElementById('defBar').style.width = '78%';
+
+            // Jobs pending
+            const totalNodes = 4;
+            const avgJobsPerNode = 12;
+            const pendingJobs = Math.round(totalNodes * avgJobsPerNode * (cpuOver / 64 + memOver / 256) / 2);
+            document.getElementById('jobsPendientes').innerHTML = `~${pendingJobs} jobs <span class="job-pending-badge" style="font-size:0.6rem;vertical-align:middle;"><i class="fas fa-hourglass"></i> PENDING</span>`;
+            document.getElementById('cardJobs').className = 'glass-card metric-card card-amber';
+        }
+
+        // ── View switcher ──
+        function updateChartView(view) {
+            renderChart(view);
+        }
+
+        // ── Simulator logic ──
+        const CLUSTER_CAPACITY = {
+            nodes: 4,
+            cpuPerNode: 32,
+            ramPerNode: 128,
+            gpuPerNode: 1,
+            totalCPU: 128,
+            totalRAM: 512,
+            totalGPU: 4,
+            nodeNames: ['C1', 'C2', 'C3', 'C4']
+        };
+
+        function adjustSimuField(field, delta) {
+            const map = { nodes:'simNodes', cpu:'simCPU', ram:'simRAM', gpu:'simGPU' };
+            const el = document.getElementById(map[field]);
+            let val = parseInt(el.value) + delta;
+            const min = parseInt(el.min), max = parseInt(el.max);
+            val = Math.max(min, Math.min(max, val));
+            el.value = val;
+            simulateCapacity();
+        }
+
+        function simulateCapacity() {
+            const reqNodes = parseInt(document.getElementById('simNodes').value) || 1;
+            const reqCPUPerNode = parseInt(document.getElementById('simCPU').value) || 1;
+            const reqRAMPerNode = parseInt(document.getElementById('simRAM').value) || 1;
+            const reqGPUPerNode = parseInt(document.getElementById('simGPU').value) || 0;
+
+            const totalReqCPU = reqNodes * reqCPUPerNode;
+            const totalReqRAM = reqNodes * reqRAMPerNode;
+            const totalReqGPU = reqNodes * reqGPUPerNode;
+
+            const cpuOK = totalReqCPU <= CLUSTER_CAPACITY.totalCPU;
+            const ramOK = totalReqRAM <= CLUSTER_CAPACITY.totalRAM;
+            const gpuOK = totalReqGPU <= CLUSTER_CAPACITY.totalGPU;
+            const nodesOK = reqNodes <= CLUSTER_CAPACITY.nodes;
+
+            const allOK = cpuOK && ramOK && gpuOK && nodesOK;
+
+            const elPlaceholder = document.getElementById('simPlaceholder');
+            const elContent = document.getElementById('simResultContent');
+            const elVeredict = document.getElementById('simVeredict');
+            const elBreakdown = document.getElementById('simBreakdown');
+
+            elPlaceholder.style.display = 'none';
+            elContent.style.display = 'flex';
+            elContent.style.flexDirection = 'column';
+
+            if (allOK) {
+                elVeredict.className = 'simu-veredict ok';
+                elVeredict.innerHTML = '<i class="fas fa-check-circle"></i> Recursos suficientes disponibles ahora';
+            } else {
+                elVeredict.className = 'simu-veredict fail';
+                elVeredict.innerHTML = '<i class="fas fa-times-circle"></i> Recursos insuficientes en la infraestructura actual';
+            }
+
+            // Build breakdown
+            let rows = [];
+            const addRow = (label, req, avail, unit, isOver) => {
+                const status = isOver ? 'over' : 'ok';
+                rows.push(`
+                    <div class="simu-bd-row">
+                        <span class="simu-bd-label">${label}</span>
+                        <span style="display:flex;gap:1rem;align-items:center;">
+                            <span>Solicitado: <strong>${req}</strong> ${unit}</span>
+                            <span>Disponible: <strong>${avail}</strong> ${unit}</span>
+                            <span class="simu-bd-value ${status}">${isOver ? '✗ Excedido' : '✓ OK'}</span>
+                        </span>
+                    </div>
+                `);
+            };
+
+            let anyOver = false;
+            if (!nodesOK) { addRow('Nodos', reqNodes, CLUSTER_CAPACITY.nodes, '', true); anyOver = true; }
+            else { addRow('Nodos', reqNodes, CLUSTER_CAPACITY.nodes, '', false); }
+
+            if (!cpuOK) { addRow('CPUs totales', totalReqCPU, CLUSTER_CAPACITY.totalCPU, '', true); anyOver = true; }
+            else { addRow('CPUs totales', totalReqCPU, CLUSTER_CAPACITY.totalCPU, '', false); }
+
+            if (!ramOK) { addRow('RAM total (GB)', totalReqRAM, CLUSTER_CAPACITY.totalRAM, 'GB', true); anyOver = true; }
+            else { addRow('RAM total (GB)', totalReqRAM, CLUSTER_CAPACITY.totalRAM, 'GB', false); }
+
+            if (!gpuOK) { addRow('GPUs totales', totalReqGPU, CLUSTER_CAPACITY.totalGPU, '', true); anyOver = true; }
+            else { addRow('GPUs totales', totalReqGPU, CLUSTER_CAPACITY.totalGPU, '', false); }
+
+            elBreakdown.innerHTML = rows.join('');
+
+            // If over, show expansion recommendation
+            if (anyOver) {
+                const deficitCPU = Math.max(0, totalReqCPU - CLUSTER_CAPACITY.totalCPU);
+                const deficitRAM = Math.max(0, totalReqRAM - CLUSTER_CAPACITY.totalRAM);
+                const deficitGPU = Math.max(0, totalReqGPU - CLUSTER_CAPACITY.totalGPU);
+                const deficitNodes = Math.max(0, reqNodes - CLUSTER_CAPACITY.nodes);
+
+                // Calculate additional nodes needed based on the biggest deficit
+                let addNodesFromCPU = Math.ceil(deficitCPU / CLUSTER_CAPACITY.cpuPerNode);
+                let addNodesFromRAM = Math.ceil(deficitRAM / CLUSTER_CAPACITY.ramPerNode);
+                let addNodesFromGPU = deficitGPU > 0 ? Math.ceil(deficitGPU / CLUSTER_CAPACITY.gpuPerNode) : 0;
+                let addNodesFromCount = deficitNodes;
+                let recommendedNodes = Math.max(addNodesFromCPU, addNodesFromRAM, addNodesFromGPU, addNodesFromCount);
+                let newTotalNodes = CLUSTER_CAPACITY.nodes + recommendedNodes;
+
+                let recapHTML = `
+                    <div style="margin-top:1rem;padding:1rem;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.12);border-radius:12px;">
+                        <div style="font-weight:700;font-size:0.85rem;color:var(--warning);margin-bottom:0.6rem;display:flex;align-items:center;gap:0.4rem;">
+                            <i class="fas fa-chart-simple"></i> Proyecci&oacute;n de expansi&oacute;n necesaria
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;font-size:0.82rem;">
+                            <div style="color:var(--text-muted);">D&eacute;ficit de CPUs:</div>
+                            <div style="font-weight:600;color:var(--danger);">+${deficitCPU} CPUs</div>
+                            <div style="color:var(--text-muted);">D&eacute;ficit de RAM:</div>
+                            <div style="font-weight:600;color:var(--danger);">+${deficitRAM} GB</div>
+                            ${deficitGPU > 0 ? `<div style="color:var(--text-muted);">D&eacute;ficit de GPUs:</div><div style="font-weight:600;color:var(--danger);">+${deficitGPU} GPUs</div>` : ''}
+                            <div style="color:var(--text-muted);">Nodos adicionales requeridos:</div>
+                            <div style="font-weight:700;color:var(--warning);font-size:1rem;">+${recommendedNodes} nodos</div>
+                            <div style="color:var(--text-muted);">Nueva capacidad total:</div>
+                            <div style="font-weight:700;color:var(--success);">${newTotalNodes} nodos &middot; ${newTotalNodes * CLUSTER_CAPACITY.cpuPerNode} CPUs &middot; ${newTotalNodes * CLUSTER_CAPACITY.ramPerNode} GB &middot; ${newTotalNodes * CLUSTER_CAPACITY.gpuPerNode} GPUs</div>
+                        </div>
+                    </div>
+                `;
+                elBreakdown.innerHTML += recapHTML;
+
+                // Change veredict to warning-style since we have a solution
+                elVeredict.className = 'simu-veredict warn';
+                elVeredict.innerHTML = '<i class="fas fa-triangle-exclamation"></i> Recursos insuficientes ahora &mdash; se requiere expansi&oacute;n';
+            }
+
+        }
+
+        // ── Available resources doughnut charts ──
+        let availCharts = [];
+
+        function renderAvailCharts() {
+            // Destroy previous
+            availCharts.forEach(c => c.destroy());
+            availCharts = [];
+
+            // Current usage percentages (from last historical data point)
+            const lastCPU = data.cpuHistory[data.cpuHistory.length - 1] || 65;
+            const lastMEM = data.memHistory[data.memHistory.length - 1] || 60;
+            // GPU simulated: ~25% usage
+            const lastGPU = 25;
+
+            const configs = [
+                { id: 'availCPUChart', used: lastCPU, total: 100, label: 'CPU', unit: '', totalLabel: '128', usedLabel: Math.round(128 * lastCPU / 100) + '' },
+                { id: 'availRAMChart', used: lastMEM, total: 100, label: 'RAM', unit: 'GB', totalLabel: '512', usedLabel: Math.round(512 * lastMEM / 100) + '' },
+                { id: 'availGPUChart', used: lastGPU, total: 100, label: 'GPU', unit: '', totalLabel: '4', usedLabel: Math.round(4 * lastGPU / 100) + '' },
+            ];
+
+            const colors = [
+                { used: '#1e90ff', avail: 'rgba(30,144,255,0.1)' },
+                { used: '#00c853', avail: 'rgba(0,200,83,0.1)' },
+                { used: '#a855f7', avail: 'rgba(168,85,247,0.1)' },
+            ];
+
+            const gridColor = getComputedStyle(document.body).getPropertyValue('--border').trim() || 'rgba(255,255,255,0.04)';
+            const textColor = getComputedStyle(document.body).getPropertyValue('--text-muted').trim() || '#94a3b8';
+
+            configs.forEach((cfg, i) => {
+                const el = document.getElementById(cfg.id);
+                if (!el) return;
+                const used = cfg.used;
+                const avail = 100 - used;
+
+                const chart = new Chart(el, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['En uso', 'Disponible'],
+                        datasets: [{
+                            data: [used, avail],
+                            backgroundColor: [colors[i].used, colors[i].avail],
+                            borderWidth: 0,
+                            hoverOffset: 3,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        cutout: '72%',
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: 'rgba(15,23,42,0.9)',
+                                titleColor: '#f1f5f9',
+                                bodyColor: '#cbd5e1',
+                                borderColor: 'rgba(255,255,255,0.06)',
+                                borderWidth: 1,
+                                padding: 10,
+                                cornerRadius: 8,
+                                callbacks: {
+                                    label: function(ctx) {
+                                        return ctx.label + ': ' + ctx.parsed + '%';
+                                    }
+                                }
+                            }
+                        },
+                        animation: {
+                            animateRotate: true,
+                            duration: 1000,
+                        }
+                    },
+                    plugins: [{
+                        id: 'centerText',
+                        beforeDraw: function(chart) {
+                            const { width, height, ctx } = chart;
+                            ctx.save();
+                            const fontSize = (height / 6).toFixed(0);
+                            ctx.font = fontSize + 'px Inter, sans-serif';
+                            ctx.textBaseline = 'middle';
+                            ctx.textAlign = 'center';
+                            const centerX = width / 2;
+                            const centerY = height / 2;
+
+                            const meta = chart.getDatasetMeta(0);
+                            const total = meta.total || 100;
+                            const usedVal = chart.data.datasets[0].data[0];
+                            ctx.fillStyle = colors[i].used;
+                            ctx.font = 'bold ' + (height / 5).toFixed(0) + 'px Inter, sans-serif';
+                            ctx.fillText(Math.round(usedVal) + '%', centerX, centerY);
+                            ctx.restore();
+                        }
+                    }]
+                });
+                availCharts.push(chart);
+
+                // Update text info
+                const idMap = { cpu: 'availCPUNum', ram: 'availRAMNum', gpu: 'availGPUNum' };
+                const barMap = { cpu: 'availCPUBar', ram: 'availRAMBar', gpu: 'availGPUBar' };
+                const keys = ['cpu', 'ram', 'gpu'];
+                const key = keys[i];
+                const numEl = document.getElementById(idMap[key]);
+                const barEl = document.getElementById(barMap[key]);
+                if (numEl) {
+                    numEl.innerHTML = `<span style="color:${used > 80 ? '#ef4444' : used > 60 ? '#f59e0b' : colors[i].used};">${cfg.usedLabel}</span> / ${cfg.totalLabel} ${cfg.unit}`;
+                }
+                if (barEl) {
+                    barEl.style.width = used + '%';
+                    barEl.style.background = used > 80 ? '#ef4444' : used > 60 ? '#f59e0b' : colors[i].used;
+                }
+            });
+        }
+
+        // ── Init ──
+        document.addEventListener('DOMContentLoaded', () => {
+            renderChart('day');
+            renderAvailCharts();
+
+            // Set realistic date defaults
+            const today = new Date();
+            const from = new Date(today.getFullYear(), 0, 1);
+            const to = new Date(today.getFullYear(), 11, 31);
+            document.getElementById('dateFrom').value = from.toISOString().split('T')[0];
+            document.getElementById('dateTo').value = to.toISOString().split('T')[0];
+
+            // Live simulator recalculation on input change
+            document.querySelectorAll('.simu-input').forEach(el => {
+                el.addEventListener('input', simulateCapacity);
+                el.addEventListener('change', simulateCapacity);
+            });
+        });
+
+        // ── Re-render on theme change ──
+        const origToggle = toggleTheme;
+        toggleTheme = function() {
+            origToggle();
+            setTimeout(() => {
+                renderChart(document.getElementById('viewSelect').value);
+                renderAvailCharts();
+            }, 100);
+        };
+    </script>
+</body>
+</html>

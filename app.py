@@ -596,6 +596,13 @@ def editar_solicitud(id):
 
     return redirect(url_for('dashboard'))
 
+@app.route('/analisis_predictivo')
+def analisis_predictivo():
+    if 'user_id' not in session:
+        return redirect(url_for('index'))
+    is_admin = session.get('is_admin', False)
+    return render_template('analisis_predictivo.html', is_admin=is_admin)
+
 @app.route('/arquitectura')
 def arquitectura():
     if 'user_id' not in session:

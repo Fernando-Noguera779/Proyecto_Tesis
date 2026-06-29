@@ -147,9 +147,14 @@
                 <h2 class="fw-bold">Gestión de Miembros</h2>
                 <p class="text-muted mb-0">Directorio central de investigadores y administradores</p>
             </div>
-            <div class="search-container d-none d-md-block">
-                <i class="fas fa-search"></i>
-                <input type="text" id="userSearch" class="form-control" placeholder="Buscar por nombre o correo...">
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('enviar_bienvenida_todos') }}" class="btn btn-primary btn-sm d-flex align-items-center gap-2" onclick="return confirm('¿Enviar correo de bienvenida a TODOS los usuarios de la base de datos?')">
+                    <i class="fas fa-envelope"></i> Enviar Bienvenida a Todos
+                </a>
+                <div class="search-container">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="userSearch" class="form-control" placeholder="Buscar por nombre o correo...">
+                </div>
             </div>
         </header>
 

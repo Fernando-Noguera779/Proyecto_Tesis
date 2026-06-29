@@ -403,18 +403,44 @@
                             <p class="fw-bold mb-0">{{ s.nombre_solicitante or s.usuario.nombre_apellido }}</p>
                             <p class="x-small text-muted mb-0">{{ s.nombre_proyecto }}</p>
                         </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Autorizado por</label>
+                            <input type="text" name="autorizado_por" class="form-control form-control-premium"
+                                value="{{ session.get('user_name', '') }}" placeholder="Nombre del responsable que autoriza">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold d-block">Firma</label>
+                            <div class="border border-2 border-dashed rounded-3 p-3 text-center"
+                                 style="border-style: dashed !important; min-height: 50px; display: flex; align-items: center; justify-content: center;">
+                                <span class="text-muted small">
+                                    <i class="fas fa-pen me-1"></i>Espacio para firma / aclaración
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" name="usuario_creado" id="uc{{ s.id_solicitud }}">
+                            <label class="form-check-label small fw-bold" for="uc{{ s.id_solicitud }}">
+                                <i class="fas fa-user-plus me-1 text-info"></i> Usuario creado
+                            </label>
+                        </div>
+
                         <div class="form-check form-switch mb-3">
                             <input class="form-check-input" type="checkbox" name="acceso_nodos" id="nodos{{ s.id_solicitud }}">
                             <label class="form-check-label small fw-bold" for="nodos{{ s.id_solicitud }}">
                                 <i class="fas fa-server me-1 text-primary"></i> Acceso a Nodos del Clúster
                             </label>
                         </div>
+
                         <div class="form-check form-switch mb-4">
                             <input class="form-check-input" type="checkbox" name="maquina_virtual" id="mv{{ s.id_solicitud }}">
                             <label class="form-check-label small fw-bold" for="mv{{ s.id_solicitud }}">
                                 <i class="fas fa-desktop me-1 text-warning"></i> Máquina Virtual Autorizada
                             </label>
                         </div>
+
                         <div class="mb-3">
                             <label class="form-label small fw-bold">Detalles de Recursos Asignados</label>
                             <textarea name="detalles_mv" class="form-control form-control-premium" rows="2"

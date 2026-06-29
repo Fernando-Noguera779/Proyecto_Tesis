@@ -290,7 +290,9 @@ def login():
                 <p><a href="{url_for('dashboard', _external=True)}" style="display:inline-block;padding:10px 20px;background:#1a3668;color:#fff;text-decoration:none;border-radius:5px;">Ir al panel</a></p>
                 <hr><p style="color:#999;font-size:11px;">CLUSTER NIDTEC — Facultad Politécnica - UNA</p>
             </body></html>"""
-            enviar_correo(usuario.correo_electronico, 'Bienvenido a FNCLust System', cuerpo_bienvenida)
+            ok = enviar_correo(usuario.correo_electronico, 'Bienvenido a FNCLust System', cuerpo_bienvenida)
+            if not ok:
+                flash('El correo de bienvenida no pudo enviarse. Revisá la consola del servidor.', 'warning')
 
             flash(f'¡Bienvenido de vuelta, {usuario.nombre_apellido}!', 'success')
             return redirect(url_for('dashboard'))
@@ -397,6 +399,23 @@ def registro():
         db.session.add(nuevo_usuario)
         db.session.commit()
         
+        # Enviar correo de bienvenida al registrarse
+        cuerpo_bienvenida = f"""
+            <html><body style="font-family:Arial,sans-serif;padding:20px">
+                <h2 style="color:#1a3668;">¡Bienvenido a FNClust System!</h2>
+                <p>Hola <strong>{nuevo_usuario.nombre_apellido}</strong>,</p>
+                <p>Tu cuenta ha sido creada exitosamente en el sistema de gestión del CLUSTER NIDTEC.</p>
+                <p>Ya puedes iniciar sesión y acceder a todas las funcionalidades:</p>
+                <ul>
+                    <li>Solicitar recursos del clúster</li>
+                    <li>Monitorear el estado de tus solicitudes</li>
+                    <li>Acceder a recursos y proyectos activos</li>
+                </ul>
+                <p><a href="{url_for('login', _external=True)}" style="display:inline-block;padding:10px 20px;background:#1a3668;color:#fff;text-decoration:none;border-radius:5px;">Iniciar sesión</a></p>
+                <hr><p style="color:#999;font-size:11px;">CLUSTER NIDTEC — Facultad Politécnica - UNA</p>
+            </body></html>"""
+        enviar_correo(nuevo_usuario.correo_electronico, 'Bienvenido a FNClust System', cuerpo_bienvenida)
+
         flash('Cuenta creada con éxito. Ya puedes iniciar sesión.', 'success')
         return redirect(url_for('index'))
     
@@ -515,7 +534,7 @@ def nueva_solicitud():
             db.session.add(nueva)
             db.session.commit()
 
-            # Notificar a los administradores (in-app + email)
+            # Notificar a los administradores (solo in-app)
             admins = Usuario.query.filter_by(es_administrador=True).all()
             for admin in admins:
                 notif = Notificacion(
@@ -524,20 +543,23 @@ def nueva_solicitud():
                     tipo='SOLICITUD'
                 )
                 db.session.add(notif)
-                solicitud_link = url_for('dashboard', _external=True) + f"#solicitud-{nueva.id_solicitud}"
-                cuerpo = f"""
-                <html><body style="font-family:Arial,sans-serif;padding:20px">
-                    <h2 style="color:#1a3668;">Nueva solicitud de recursos</h2>
-                    <p><strong>Solicitud #</strong>{nueva.id_solicitud}</p>
-                    <p><strong>Proyecto:</strong> {nueva.nombre_proyecto}</p>
-                    <p><strong>Solicitante:</strong> {nueva.nombre_solicitante or session.get('user_name')}</p>
-                    <p><strong>Correo:</strong> {nueva.correo_solicitante}</p>
-                    <p><strong>Facultad:</strong> {nueva.facultad}</p>
-                    <p><strong>Carrera:</strong> {nueva.carrera}</p>
-                    <p><a href="{solicitud_link}" style="display:inline-block;padding:10px 20px;background:#1a3668;color:#fff;text-decoration:none;border-radius:5px;">Ver solicitud #{nueva.id_solicitud}</a></p>
-                    <hr><p style="color:#999;font-size:11px;">CLUSTER NIDTEC — Facultad Politécnica - UNA</p>
-                </body></html>"""
-                enviar_correo(admin.correo_electronico, f'Nueva solicitud #{nueva.id_solicitud}: {nueva.nombre_proyecto}', cuerpo)
+
+            # Enviar correo de confirmación al solicitante
+            asunto = f"Solicitud #{nueva.id_solicitud} recibida: {nueva.nombre_proyecto}"
+            cuerpo = f"""
+            <html><body style="font-family:Arial,sans-serif;padding:20px">
+                <h2 style="color:#1a3668;">Solicitud recibida correctamente</h2>
+                <p>Hola <strong>{nueva.nombre_solicitante}</strong>,</p>
+                <p>Tu solicitud de recursos ha sido recibida y está pendiente de revisión.</p>
+                <hr>
+                <p><strong>Proyecto:</strong> {nueva.nombre_proyecto}</p>
+                <p><strong>Facultad:</strong> {nueva.facultad}</p>
+                <p><strong>Carrera:</strong> {nueva.carrera}</p>
+                <p><strong>Estado:</strong> PENDIENTE</p>
+                <hr>
+                <p style="color:#999;font-size:11px;">CLUSTER NIDTEC — Facultad Politécnica - UNA</p>
+            </body></html>"""
+            enviar_correo(nueva.correo_solicitante, asunto, cuerpo)
             db.session.commit()
 
             flash('Solicitud enviada correctamente', 'success')
@@ -567,10 +589,11 @@ def aceptar_solicitud(id):
     try:
         # 1. Actualizar la solicitud madre
         solicitud.estado = 'ACEPTADA'
+        solicitud.usuario_creado = True if request.form.get('usuario_creado') else False
         solicitud.acceso_nodos = True if request.form.get('acceso_nodos') else False
         solicitud.maquina_virtual = True if request.form.get('maquina_virtual') else False
         solicitud.detalles_mv = request.form.get('detalles_mv')
-        solicitud.autorizado_por = session.get('user_name')
+        solicitud.autorizado_por = request.form.get('autorizado_por') or session.get('user_name')
 
         # 2. Crear el registro en solicitudes_aprobadas
         # Generamos un número de resolución ficticio o secuencial para la auditoría
@@ -745,130 +768,143 @@ def solicitud_pdf(id):
     
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf.set_auto_page_break(auto=True, margin=18)
     
     # Colores institucionales
     azul = (26, 54, 104)
-    gris = (100, 116, 139)
+    azul_claro = (41, 76, 138)
+    gris = (120, 130, 150)
+    gris_claro = (235, 238, 242)
     negro = (30, 41, 59)
     
-    # Encabezado con logo
+    # Encabezado compacto
     logo_path = os.path.join(app.root_path, 'static', 'img', 'logo-FNC.png')
     pdf.set_fill_color(*azul)
-    pdf.rect(0, 0, 210, 35, 'F')
+    pdf.rect(0, 0, 210, 28, 'F')
     if os.path.exists(logo_path):
-        pdf.image(logo_path, x=12, y=4, w=22)
+        pdf.image(logo_path, x=12, y=4, w=18)
     pdf.set_text_color(255, 255, 255)
-    pdf.set_font('Helvetica', 'B', 18)
-    pdf.set_xy(10, 8)
-    pdf.cell(0, 10, 'FNOGUERA CLUSTER', align='C')
-    pdf.set_font('Helvetica', '', 9)
-    pdf.set_xy(10, 20)
-    pdf.cell(0, 6, 'Nucleo de Investigacion y Desarrollo Tecnologico - NIDTEC', align='C')
-    pdf.set_xy(10, 27)
-    pdf.cell(0, 6, 'Facultad Politecnica - Universidad Nacional de Asuncion', align='C')
+    pdf.set_font('Helvetica', 'B', 16)
+    pdf.set_xy(10, 5)
+    pdf.cell(0, 9, 'FNOGUERA CLUSTER', align='C')
+    pdf.set_font('Helvetica', '', 8)
+    pdf.set_xy(10, 15)
+    pdf.cell(0, 5, 'Nucleo de Investigacion y Desarrollo Tecnologico - NIDTEC', align='C')
+    pdf.set_xy(10, 21)
+    pdf.cell(0, 5, 'Facultad Politecnica - Universidad Nacional de Asuncion', align='C')
     
     # Título del documento
-    pdf.ln(40)
+    pdf.ln(32)
     pdf.set_text_color(*azul)
-    pdf.set_font('Helvetica', 'B', 14)
-    pdf.cell(0, 10, f'Detalle de Solicitud #{s.id_solicitud}', align='C')
+    pdf.set_font('Helvetica', 'B', 13)
+    pdf.cell(0, 8, f'SOLICITUD DE RECURSOS #{s.id_solicitud}', align='C')
     pdf.ln(10)
-    pdf.set_draw_color(200, 200, 200)
-    pdf.set_line_width(0.3)
-    pdf.line(30, pdf.get_y(), 180, pdf.get_y())
-    pdf.ln(10)
+    pdf.set_draw_color(*azul)
+    pdf.set_line_width(0.4)
+    pdf.line(50, pdf.get_y(), 160, pdf.get_y())
+    pdf.ln(8)
     
-    # Información principal
-    pdf.set_text_color(*negro)
-    pdf.set_font('Helvetica', 'B', 11)
-    
-    def put_row(label, value):
-        pdf.set_font('Helvetica', 'B', 10)
+    # Información principal en dos columnas visuales
+    def put_row(label, value, bold=True):
+        pdf.set_font('Helvetica', 'B', 9)
         pdf.set_text_color(*gris)
-        pdf.cell(50, 7, label, border=0)
-        pdf.set_font('Helvetica', '', 10)
+        pdf.cell(45, 6, label, border=0)
+        pdf.set_font('Helvetica', '', 9)
         pdf.set_text_color(*negro)
-        pdf.cell(0, 7, str(value or 'N/A'), border=0)
-        pdf.ln(7)
+        pdf.cell(0, 6, str(value or 'N/A'), border=0)
+        pdf.ln(6)
+    
+    # Primera sección: datos del solicitante
+    pdf.set_font('Helvetica', 'B', 9)
+    pdf.set_text_color(*azul)
+    pdf.cell(0, 6, 'DATOS DEL SOLICITANTE', border=0)
+    pdf.ln(7)
+    pdf.set_fill_color(*gris_claro)
+    pdf.rect(10, pdf.get_y(), 190, 0.5, 'F')
+    pdf.ln(3)
     
     put_row('Solicitante:', s.nombre_solicitante or s.usuario.nombre_apellido)
     put_row('Correo:', s.correo_solicitante or s.usuario.correo_electronico)
-    put_row('Fecha Solicitud:', s.fecha_solicitud.strftime('%d/%m/%Y') if s.fecha_solicitud else 'N/A')
     put_row('Facultad:', s.facultad)
     put_row('Carrera:', s.carrera)
-    put_row('Proyecto:', s.nombre_proyecto)
-    put_row('Asignatura/Modulo:', s.asignatura_modulo)
-    put_row('Tutor:', s.profesor_tutor)
     
-    pdf.ln(5)
-    pdf.set_draw_color(200, 200, 200)
-    pdf.set_line_width(0.2)
-    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-    pdf.ln(5)
-    
-    put_row('Periodo:', f"{s.fecha_inicio.strftime('%d/%m/%Y')} - {s.fecha_finalizacion_estimada.strftime('%d/%m/%Y')}")
-    put_row('Estado:', s.estado)
-    
-    pdf.ln(5)
-    pdf.set_draw_color(200, 200, 200)
-    pdf.set_line_width(0.2)
-    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-    pdf.ln(5)
-    
-    # Software requerido
-    pdf.set_font('Helvetica', 'B', 10)
-    pdf.set_text_color(*gris)
-    pdf.cell(0, 7, 'Software Requerido:', border=0)
+    pdf.ln(2)
+    pdf.set_font('Helvetica', 'B', 9)
+    pdf.set_text_color(*azul)
+    pdf.cell(0, 6, 'DATOS DEL PROYECTO', border=0)
     pdf.ln(7)
-    pdf.set_font('Helvetica', '', 10)
-    pdf.set_text_color(*negro)
-    pdf.multi_cell(0, 6, s.software_requerido or 'N/A')
+    pdf.set_fill_color(*gris_claro)
+    pdf.rect(10, pdf.get_y(), 190, 0.5, 'F')
     pdf.ln(3)
     
-    # Observaciones
-    pdf.set_font('Helvetica', 'B', 10)
-    pdf.set_text_color(*gris)
-    pdf.cell(0, 7, 'Observaciones:', border=0)
+    put_row('Nombre:', s.nombre_proyecto)
+    put_row('Asignatura:', s.asignatura_modulo)
+    put_row('Tutor:', s.profesor_tutor)
+    put_row('Periodo:', f"{s.fecha_inicio.strftime('%d/%m/%Y')} - {s.fecha_finalizacion_estimada.strftime('%d/%m/%Y')}")
+    put_row('Fecha Solicitud:', s.fecha_solicitud.strftime('%d/%m/%Y') if s.fecha_solicitud else 'N/A')
+    put_row('Estado:', s.estado)
+    
+    pdf.ln(2)
+    pdf.set_font('Helvetica', 'B', 9)
+    pdf.set_text_color(*azul)
+    pdf.cell(0, 6, 'RECURSOS SOLICITADOS', border=0)
     pdf.ln(7)
-    pdf.set_font('Helvetica', '', 10)
+    pdf.set_fill_color(*gris_claro)
+    pdf.rect(10, pdf.get_y(), 190, 0.5, 'F')
+    pdf.ln(3)
+    
+    # Software requerido
+    pdf.set_font('Helvetica', 'B', 9)
+    pdf.set_text_color(*gris)
+    pdf.cell(0, 5, 'Software:')
+    pdf.ln(5)
+    pdf.set_font('Helvetica', '', 9)
     pdf.set_text_color(*negro)
-    pdf.multi_cell(0, 6, s.observaciones or 'Sin observaciones')
+    pdf.multi_cell(0, 4.5, s.software_requerido or 'N/A')
+    pdf.ln(2)
+    
+    # Observaciones
+    pdf.set_font('Helvetica', 'B', 9)
+    pdf.set_text_color(*gris)
+    pdf.cell(0, 5, 'Observaciones:')
+    pdf.ln(5)
+    pdf.set_font('Helvetica', '', 9)
+    pdf.set_text_color(*negro)
+    pdf.multi_cell(0, 4.5, s.observaciones or 'Sin observaciones')
     
     # Información de autorización (si aceptada)
     if s.estado == 'ACEPTADA':
-        pdf.ln(5)
-        pdf.set_draw_color(200, 200, 200)
-        pdf.set_line_width(0.2)
-        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-        pdf.ln(5)
+        pdf.ln(3)
+        pdf.set_font('Helvetica', 'B', 9)
         pdf.set_text_color(*azul)
-        pdf.set_font('Helvetica', 'B', 12)
-        pdf.cell(0, 10, 'Informacion de Autorizacion', align='C')
-        pdf.ln(10)
+        pdf.cell(0, 6, 'AUTORIZACION', border=0)
+        pdf.ln(7)
+        pdf.set_fill_color(*gris_claro)
+        pdf.rect(10, pdf.get_y(), 190, 0.5, 'F')
+        pdf.ln(3)
         
-        pdf.set_text_color(*negro)
-        pdf.set_font('Helvetica', '', 10)
+        put_row('Usuario Creado:', 'SI' if s.usuario_creado else 'NO')
         put_row('Acceso a Nodos:', 'SI' if s.acceso_nodos else 'NO')
         put_row('Maquina Virtual:', 'SI' if s.maquina_virtual else 'NO')
         put_row('Autorizado por:', s.autorizado_por or 'Admin')
         if s.detalles_mv:
-            pdf.set_font('Helvetica', 'B', 10)
+            pdf.set_font('Helvetica', 'B', 9)
             pdf.set_text_color(*gris)
-            pdf.cell(0, 7, 'Detalles de Recursos:', border=0)
-            pdf.ln(7)
-            pdf.set_font('Helvetica', '', 10)
+            pdf.cell(0, 5, 'Detalles de Recursos:')
+            pdf.ln(5)
+            pdf.set_font('Helvetica', '', 9)
             pdf.set_text_color(*negro)
-            pdf.multi_cell(0, 6, s.detalles_mv)
+            pdf.multi_cell(0, 4.5, s.detalles_mv)
     
     # Footer
-    pdf.ln(10)
-    pdf.set_draw_color(200, 200, 200)
+    pdf.ln(5)
+    pdf.set_draw_color(*gris)
+    pdf.set_line_width(0.2)
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-    pdf.ln(3)
-    pdf.set_font('Helvetica', '', 7)
+    pdf.ln(2)
+    pdf.set_font('Helvetica', '', 6.5)
     pdf.set_text_color(*gris)
-    pdf.cell(0, 5, f'Documento generado el {datetime.now().strftime("%d/%m/%Y %H:%M")} - FNOGUERA CLUSTER NIDTEC', align='C')
+    pdf.cell(0, 4, f'Documento generado el {datetime.now().strftime("%d/%m/%Y %H:%M")} - FNOGUERA CLUSTER NIDTEC', align='C')
     
     # Generar respuesta
     pdf_output = bytes(pdf.output())
@@ -1120,6 +1156,39 @@ def degradar_usuario(id):
         session['is_admin'] = False
     
     flash(f'✓ Rol de administrador removido para {user.nombre_apellido}', 'info')
+    return redirect(url_for('lista_usuarios'))
+
+@app.route('/enviar-bienvenida-todos')
+def enviar_bienvenida_todos():
+    if 'user_id' not in session or not session.get('is_admin'):
+        flash('Acceso no autorizado', 'danger')
+        return redirect(url_for('index'))
+
+    usuarios = Usuario.query.all()
+    enviados = 0
+    fallidos = 0
+    for u in usuarios:
+        cuerpo = f"""
+            <html><body style="font-family:Arial,sans-serif;padding:20px">
+                <h2 style="color:#1a3668;">¡Bienvenido a FNClust System!</h2>
+                <p>Hola <strong>{u.nombre_apellido}</strong>,</p>
+                <p>Tu cuenta está registrada en el sistema de gestión del CLUSTER NIDTEC.</p>
+                <p>Desde tu panel puedes:</p>
+                <ul>
+                    <li>Solicitar recursos del clúster</li>
+                    <li>Monitorear el estado de tus solicitudes</li>
+                    <li>Acceder a recursos y proyectos activos</li>
+                </ul>
+                <p><a href="{url_for('login', _external=True)}" style="display:inline-block;padding:10px 20px;background:#1a3668;color:#fff;text-decoration:none;border-radius:5px;">Iniciar sesión</a></p>
+                <hr><p style="color:#999;font-size:11px;">CLUSTER NIDTEC — Facultad Politécnica - UNA</p>
+            </body></html>"""
+        ok = enviar_correo(u.correo_electronico, 'Bienvenido a FNClust System', cuerpo)
+        if ok:
+            enviados += 1
+        else:
+            fallidos += 1
+
+    flash(f'Correos enviados: {enviados} exitosos, {fallidos} fallidos.', 'success' if fallidos == 0 else 'warning')
     return redirect(url_for('lista_usuarios'))
 
 @app.route('/cambiar_password', methods=['POST'])
